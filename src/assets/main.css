@@ -1,0 +1,58 @@
+@import './base.css';
+
+#app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-weight: normal;
+}
+
+a,
+.green {
+  text-decoration: none;
+  color: hsla(160, 100%, 37%, 1);
+  transition: 0.4s;
+  padding: 3px;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}
+
+@media (min-width: 1024px) {
+  body {
+    display: flex;
+    place-items: center;
+  }
+
+  #app {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 0 2rem;
+  }
+}
+
+/* 用户地图头像光影特效 */
+.user-marker img {
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.user-marker img:hover {
+  box-shadow: 0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18);
+  border-color: #67c23a;
+  z-index: 30000;
+}
+
+.user-marker-tip {
+  position: fixed;
+  background: #409eff;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  z-index: 30001;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
