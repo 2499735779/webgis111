@@ -3,7 +3,7 @@ import logo from '@/assets/favicon.ico'
 
 const title = '点击跳转到氪小化的github查看项目源码'
 const buttons = [
-  { text: '跳转', url: 'https://openlayers.org/en/latest/apidoc/' }
+  { text: '跳转', url: 'https://github.com/2499735779/webgis111' }
 ]
 
 const onClick = button =>
@@ -14,18 +14,17 @@ const onClick = button =>
 
 <template>
   <header class="header">
-    <div class="title">
+    <div class="header-center">
       <img class="logo" :src="logo" alt="暂无图片"/>
-      <span>{{title}}</span>
-    </div>
-    <div class="title">
-      <el-button v-for="button in buttons"
+      <span class="header-title">{{title}}</span>
+      <el-button
+        v-for="button in buttons"
         :key="button.text"
         type="primary"
         text
+        class="header-btn"
         @click="onClick(button)"
-      >{{ button.text }}
-      </el-button>
+      >{{ button.text }}</el-button>
     </div>
   </header>
 </template>
@@ -34,9 +33,9 @@ const onClick = button =>
 .header {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  height: 36px; /* 缩小高度 */
+  height: 36px;
   min-height: 36px;
   max-height: 36px;
   background: #333333;
@@ -45,15 +44,26 @@ const onClick = button =>
   width: 100vw;
   box-sizing: border-box;
 }
-.logo {height: 22px; margin-right: 5px;}
-.title {
+.header-center {
   display: flex;
   flex-direction: row;
   align-items: center;
-  height: 100%;
-  font-size: 16px; /* 缩小字号 */
-  flex: 1 1 0;
-  min-width: 0;
+  justify-content: center;
+  width: 100%;
+  gap: 16px;
+}
+.logo {
+  height: 22px;
+  margin-right: 5px;
+}
+.header-title {
+  color: #fff;
+  font-size: 16px;
+  margin: 0 10px;
+  white-space: nowrap;
+}
+.header-btn {
+  margin-left: 10px;
 }
 .el-button.is-text:not(.is-disabled):focus, .el-button.is-text:not(.is-disabled):hover {
   background-color: #4e4e4e;

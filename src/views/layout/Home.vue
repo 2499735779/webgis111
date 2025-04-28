@@ -273,7 +273,7 @@ function onUserAvatarClick() {
       @click="onUserAvatarClick"
       :style="{ pointerEvents: isLoginPage ? 'none' : 'auto', zIndex: 4000 }"
     >
-      <el-avatar :size="44" :src="avatarUrl" />
+      <el-avatar :size="64" :src="avatarUrl" />
     </div>
     <!-- 用户信息弹窗 -->
     <el-dialog
@@ -424,11 +424,11 @@ function onUserAvatarClick() {
 /* 右上角用户头像 */
 .user-avatar {
   position: fixed;
-  top: 10px;
+  top: 48px; /* 往下调整距离 */
   right: 40px;
   z-index: 4000;
-  width: 44px;
-  height: 44px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
