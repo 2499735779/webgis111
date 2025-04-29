@@ -41,7 +41,7 @@ const handleLogin = async () => {
     if (!valid) return
     msg.value = ''
     try {
-      const res = await axios.post('http://localhost:3001/api/user-login', {
+      const res = await axios.post('http://117.72.108.239:3001/api/user-login', {
         username: form.value.username,
         password: form.value.password
       })
@@ -66,7 +66,7 @@ const onRegister = () => {
     if (!valid) return
     msg.value = ''
     try {
-      const res = await axios.post('http://localhost:3001/api/user-register', form.value)
+      const res = await axios.post('http://117.72.108.239:3001/api/user-register', form.value)
       if (res.data.success) {
         msg.value = '注册成功，请登录'
       } else {
