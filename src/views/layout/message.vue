@@ -21,7 +21,7 @@ watch(messages, v => {
 
 // 获取好友列表
 const fetchFriends = async () => {
-  const res = await axios.get('http://localhost:3001/api/user-friends', {
+  const res = await axios.get('http://117.72.108.239:3001/api/user-friends', {
     params: { username: user.value.username }
   })
   friends.value = res.data || []
@@ -31,7 +31,7 @@ const fetchFriends = async () => {
 // 获取与某好友的消息
 const fetchMessages = async (friendName) => {
   console.debug('[DEBUG] fetchMessages for:', friendName)
-  const res = await axios.get('http://localhost:3001/api/messages', {
+  const res = await axios.get('http://117.72.108.239:3001/api/messages', {
     params: { user1: user.value.username, user2: friendName }
   })
   messages.value = res.data || []
@@ -45,7 +45,7 @@ const fetchMessages = async (friendName) => {
 const sendMessage = async () => {
   if (!inputMsg.value.trim() || !selectedFriend.value) return
   console.debug('[DEBUG] sendMessage:', inputMsg.value)
-  await axios.post('http://localhost:3001/api/messages', {
+  await axios.post('http://117.72.108.239:3001/api/messages', {
     from: user.value.username,
     to: selectedFriend.value,
     content: inputMsg.value.trim()
@@ -56,7 +56,7 @@ const sendMessage = async () => {
 
 // 轮询获取未读消息数，并自动刷新当前会话消息
 const fetchUnread = async () => {
-  const res = await axios.get('http://localhost:3001/api/unread-messages', {
+  const res = await axios.get('http://117.72.108.239:3001/api/unread-messages', {
     params: { username: user.value.username }
   })
   unreadMap.value = res.data || {}
@@ -70,7 +70,7 @@ const fetchUnread = async () => {
 // 处理好友请求消息
 const handleRequest = async (msg, accept) => {
   console.debug('[DEBUG] handleRequest:', msg, accept)
-  await axios.post('http://localhost:3001/api/handle-friend-request', {
+  await axios.post('http://117.72.108.239:3001/api/handle-friend-request', {
     username: user.value.username,
     from: msg.from,
     accept

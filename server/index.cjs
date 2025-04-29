@@ -277,7 +277,7 @@ client.connect().then(() => {
 
   const port = 3001;
   app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+    console.log(`Server running at http://117.72.108.239:${port}`);
   });
 }).catch(err => {
   console.error('Failed to connect to MongoDB Atlas:', err);

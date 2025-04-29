@@ -67,14 +67,14 @@ let friendReqTimer = null
 const fetchFriends = async () => {
   loadingFriends.value = true;
   try {
-    const res = await axios.get('http://localhost:3001/api/user-friends', {
+    const res = await axios.get('http://117.72.108.239:3001/api/user-friends', {
       params: { username: user.value.username }
     });
     const friendNames = (res.data || []).map(f => typeof f === 'string' ? f : (f.username || f));
     if (friendNames.length === 0) {
       friends.value = [];
     } else {
-      const res2 = await axios.post('http://localhost:3001/api/user-info-batch', {
+      const res2 = await axios.post('http://117.72.108.239:3001/api/user-info-batch', {
         usernames: friendNames
       });
       friends.value = res2.data || [];
@@ -86,7 +86,7 @@ const fetchFriends = async () => {
 
 // 新增：获取未读消息数
 const fetchUnread = async () => {
-  const res = await axios.get('http://localhost:3001/api/unread-messages', {
+  const res = await axios.get('http://117.72.108.239:3001/api/unread-messages', {
     params: { username: user.value.username }
   })
   unreadMap.value = res.data || {}
@@ -94,7 +94,7 @@ const fetchUnread = async () => {
 
 // 新增：获取收到的好友请求
 const fetchFriendRequests = async () => {
-  const res = await axios.get('http://localhost:3001/api/received-friend-requests', {
+  const res = await axios.get('http://117.72.108.239:3001/api/received-friend-requests', {
     params: { username: user.value.username }
   })
   friendRequests.value = res.data || []
@@ -102,7 +102,7 @@ const fetchFriendRequests = async () => {
 
 // 新增：同意/拒绝好友请求
 const handleRequest = async (from, accept) => {
-  await axios.post('http://localhost:3001/api/handle-friend-request', {
+  await axios.post('http://117.72.108.239:3001/api/handle-friend-request', {
     username: user.value.username,
     from,
     accept
@@ -119,7 +119,7 @@ const sendFriendRequest = async (toUsername) => {
   // Debug: 检查参数
   console.log('sendFriendRequest called:', user.value.username, '->', toUsername);
   try {
-    const res = await axios.post('http://localhost:3001/api/friend-request', {
+    const res = await axios.post('http://117.72.108.239:3001/api/friend-request', {
       from: user.value.username,
       to: toUsername
     });

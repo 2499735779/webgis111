@@ -43,12 +43,12 @@ const checkFriendTipUnread = async () => {
     return;
   }
   // 获取未读消息
-  const unreadRes = await axios.get('http://localhost:3001/api/unread-messages', {
+  const unreadRes = await axios.get('http://117.72.108.239:3001/api/unread-messages', {
     params: { username: user.value.username }
   });
   const unreadMap = unreadRes.data || {};
   // 获取收到的好友请求
-  const reqRes = await axios.get('http://localhost:3001/api/received-friend-requests', {
+  const reqRes = await axios.get('http://117.72.108.239:3001/api/received-friend-requests', {
     params: { username: user.value.username }
   });
   const friendReqs = reqRes.data || [];
@@ -62,10 +62,10 @@ const checkFriendTipUnread = async () => {
 async function refreshPendingRequests() {
   if (!user.value.username) return;
   const [pendingRes, rejectedRes] = await Promise.all([
-    axios.get('http://localhost:3001/api/pending-friend-requests', {
+    axios.get('http://117.72.108.239:3001/api/pending-friend-requests', {
       params: { username: user.value.username }
     }),
-    axios.get('http://localhost:3001/api/rejected-friend-requests', {
+    axios.get('http://117.72.108.239:3001/api/rejected-friend-requests', {
       params: { username: user.value.username }
     })
   ]);
@@ -119,7 +119,7 @@ function handleChatDialogClose() {
 // 头像相关
 const fetchUserDetail = async () => {
   if (!user.value.username) return;
-  const res = await axios.post('http://localhost:3001/api/user-info-batch', {
+  const res = await axios.post('http://117.72.108.239:3001/api/user-info-batch', {
     usernames: [user.value.username]
   });
   if (Array.isArray(res.data) && res.data.length > 0) {
@@ -159,7 +159,7 @@ const handleAvatarChange = async (e) => {
     avatarUrl.value = base64;
     uploading.value = true;
     try {
-      const res = await axios.post('http://localhost:3001/api/user-avatar', {
+      const res = await axios.post('http://117.72.108.239:3001/api/user-avatar', {
         username: user.value.username,
         avatar: base64
       });
