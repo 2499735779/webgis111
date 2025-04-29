@@ -21,7 +21,7 @@ const fetchMessages = async () => {
     messages.value = []
     return
   }
-  const res = await axios.get('http://117.72.108.239:3001/api/messages', {
+  const res = await axios.get('/api/messages', {
     params: { user1: user.value.username, user2: props.friend.username }
   })
   messages.value = res.data || []
@@ -43,7 +43,7 @@ const handleDialogOpen = async () => {
 
 const sendMessage = async () => {
   if (!inputMsg.value.trim() || !props.friend?.username) return
-  await axios.post('http://117.72.108.239:3001/api/messages', {
+  await axios.post('/api/messages', {
     from: user.value.username,
     to: props.friend.username,
     content: inputMsg.value.trim()

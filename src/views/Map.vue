@@ -34,7 +34,7 @@ watch(showUserDialog, v => setGlobalDialogVisible(v));
 // 获取好友列表
 const fetchFriends = async () => {
   if (!user.value.username) return;
-  const res = await axios.get('http://117.72.108.239:3001/api/user-friends', {
+  const res = await axios.get('/api/user-friends', {
     params: { username: user.value.username }
   });
   friends.value = res.data || [];
@@ -43,7 +43,7 @@ const fetchFriends = async () => {
 // 获取待处理好友请求列表
 const fetchPendingFriendRequests = async () => {
   if (!user.value.username) return;
-  const res = await axios.get('http://117.72.108.239:3001/api/pending-friend-requests', {
+  const res = await axios.get('/api/pending-friend-requests', {
     params: { username: user.value.username }
   });
   pendingFriendRequests.value = res.data || [];
@@ -114,7 +114,7 @@ const uploadLocation = async () => {
     return;
   }
   // 上传时带上用户名和头像
-  await axios.post('http://117.72.108.239:3001/api/user-location', {
+  await axios.post('/api/user-location', {
     username: user.value.username,
     avatar: user.value.avatar,
     lng: Number(lng.value),
@@ -144,7 +144,7 @@ const searchNearby = async () => {
   clearNearbyOverlays();
   const center = olmap.getView().getCenter();
   const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
-  const res = await axios.get('http://117.72.108.239:3001/api/nearby-users', {
+  const res = await axios.get('/api/nearby-users', {
     params: { lng: centerLng, lat: centerLat, radius: 3000 }
   });
   nearbyUsers.value = res.data || [];
