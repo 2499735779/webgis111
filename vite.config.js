@@ -2,7 +2,6 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   base: './',
   plugins: [ vue() ],
@@ -23,11 +22,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/ahocevar/, '/'),
       },
+      // 修改后的 /api 代理规则
       '/api': {
-        target: 'http://117.72.108.239:3001', // 后端服务器的 HTTP 地址
+        target: 'http://117.72.108.239:3001',
         changeOrigin: true,
-        secure: false,  // 因为后端没有 SSL，所以 secure 设置为 false
-        rewrite: (path) => path.replace(/^\/api/, '')
+        secure: false
+        // 没有 rewrite 规则，保持 /api 前缀不变
       }
     }
   }
