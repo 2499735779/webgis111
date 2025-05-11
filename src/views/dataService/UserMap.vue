@@ -48,7 +48,7 @@ const uploadLocation = async () => {
     errorMsg.value = '请先定位'
     return
   }
-  await axios.post('http://localhost:3001/api/user-location', {
+  await axios.post('/api/user-location', {
     userId: userId.value,
     lng: Number(lng.value),
     lat: Number(lat.value)
