@@ -1,11 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ limit: '20mb', extended: true })); // 新增这一行
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 const uri = "mongodb+srv://cstgkangrui:Cu4RV8xkbdjpl6gK@webgis0.tszfumn.mongodb.net/?retryWrites=true&w=majority&appName=webgis0";
 const client = new MongoClient(uri, {
@@ -18,7 +20,30 @@ const client = new MongoClient(uri, {
 
 let db;
 
-// 只在连接成功后注册路由
+// 创建 HTTP 服务器，并经过 Socket.IO 包装实现 WebSocket 通信
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",  // 生产环境建议根据实际情况设置允许的跨域源
+    methods: ["GET", "POST"]
+  }
+});
+
+// Socket.IO 连接处理
+io.on('connection', (socket) => {
+  console.log("New client connected:", socket.id);
+
+  // 客户端完成身份验证后，调用 join 将自身加入以用户名命名的房间
+  socket.on('join', (username) => {
+    socket.join(username);
+    console.log(`Socket ${socket.id} joined room ${username}`);
+  });
+  
+  socket.on('disconnect', () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
+
 client.connect().then(() => {
   db = client.db('webgis0');
   console.log('Connected to MongoDB Atlas');
@@ -26,10 +51,10 @@ client.connect().then(() => {
   // 用户注册
   app.post('/api/user-register', async (req, res) => {
     const { username, password } = req.body;
-    // 检查用户名和密码非空
-    if (!username || !password) return res.json({ success: false, message: '账号和密码不能为空' });
+    if (!username || !password)
+      return res.json({ success: false, message: '账号和密码不能为空' });
 
-    // 检查用户名是否为中文，且不超过10个汉字
+    // 检查用户名格式（1-10个汉字）
     const chineseReg = /^[\u4e00-\u9fa5]{1,10}$/;
     if (!chineseReg.test(username)) {
       return res.json({ success: false, message: '用户名需为1-10个汉字' });
@@ -49,7 +74,6 @@ client.connect().then(() => {
     const user = await userCol.findOne({ username, password });
     if (!user) return res.json({ success: false, message: '账号或密码错误' });
     res.json({ success: true, user: { username: user.username } });
-    // 登录成功后自动刷新页面由前端控制
   });
 
   // 用户头像上传/更换
@@ -61,7 +85,7 @@ client.connect().then(() => {
     res.json({ success: true });
   });
 
-  // 保存或更新用户坐标（每个用户只能有一条，上传新位置会覆盖旧位置）
+  // 保存或更新用户坐标
   app.post('/api/user-location', async (req, res) => {
     const { username, avatar, lng, lat } = req.body;
     if (!username || !lng || !lat) return res.json({ success: false, message: '参数缺失' });
@@ -91,7 +115,6 @@ client.connect().then(() => {
     const locations = await db.collection('userLocations').find({ lng: { $exists: true }, lat: { $exists: true } }).toArray();
     const result = [];
     for (const loc of locations) {
-      // 计算距离
       const toRad = d => d * Math.PI / 180;
       const earthR = 6371000;
       const dLat = toRad(loc.lat - centerLat);
@@ -122,24 +145,23 @@ client.connect().then(() => {
     res.json(userDoc && userDoc.friends ? userDoc.friends : []);
   });
 
-  // 新增：批量获取用户信息（含头像）
+  // 批量获取用户信息（含头像）
   app.post('/api/user-info-batch', async (req, res) => {
     const { usernames } = req.body;
     if (!Array.isArray(usernames) || usernames.length === 0) return res.json([]);
     const userCol = db.collection('users');
     const users = await userCol.find({ username: { $in: usernames } }).toArray();
-    // 只返回必要字段
     res.json(users.map(u => ({
       username: u.username,
       avatar: u.avatar || ''
     })));
   });
 
-  // 聊天消息表结构: {from, to, content, type, read, createdAt}
   // 发送消息（普通消息或好友请求）
   app.post('/api/messages', async (req, res) => {
     const { from, to, content, type } = req.body;
-    if (!from || !to || !content) return res.json({ success: false, message: '参数缺失' });
+    if (!from || !to || !content)
+      return res.json({ success: false, message: '参数缺失' });
     const msg = {
       from,
       to,
@@ -150,6 +172,8 @@ client.connect().then(() => {
     };
     await db.collection('messages').insertOne(msg);
     res.json({ success: true });
+    // 实时推送新消息给接收者
+    io.to(to).emit('new-message', msg);
   });
 
   // 获取与某好友的消息（含好友请求）
@@ -186,8 +210,9 @@ client.connect().then(() => {
   // 发送好友请求（消息模式）
   app.post('/api/friend-request', async (req, res) => {
     const { from, to } = req.body;
-    if (!from || !to || from === to) return res.json({ success: false, message: '参数错误' });
-    // 插入一条 type=friend-request 的消息
+    if (!from || !to || from === to)
+      return res.json({ success: false, message: '参数错误' });
+    // 插入一条类型为 friend-request 的消息
     await db.collection('messages').insertOne({
       from,
       to,
@@ -196,18 +221,19 @@ client.connect().then(() => {
       read: false,
       createdAt: new Date()
     });
-    // 删除被拒绝的记录
+    // 删除被拒绝的记录（如果有）
     await db.collection('messages').deleteMany({
       from, to, type: 'friend-request-rejected'
     });
     res.json({ success: true });
+    // 实时推送好友请求通知给目标用户
+    io.to(to).emit('new-friend-request', { from });
   });
 
-  // 新增：获取自己发出的未处理好友请求
+  // 获取自己发出的未处理好友请求
   app.get('/api/pending-friend-requests', async (req, res) => {
     const { username } = req.query;
     if (!username) return res.json([]);
-    // 查找自己发出的所有未被处理的好友请求
     const msgs = await db.collection('messages').find({
       from: username,
       type: 'friend-request'
@@ -215,16 +241,14 @@ client.connect().then(() => {
     res.json(msgs.map(m => m.to));
   });
 
-  // 新增：获取收到的未处理好友请求
+  // 获取收到的未处理好友请求
   app.get('/api/received-friend-requests', async (req, res) => {
     const { username } = req.query;
     if (!username) return res.json([]);
-    // 查找所有发给自己的未被处理的好友请求
     const msgs = await db.collection('messages').find({
       to: username,
       type: 'friend-request'
     }).toArray();
-    // 返回from、头像
     const userCol = db.collection('users');
     const fromNames = msgs.map(m => m.from);
     const users = await userCol.find({ username: { $in: fromNames } }).toArray();
@@ -236,11 +260,10 @@ client.connect().then(() => {
     })));
   });
 
-  // 新增：获取被拒绝的好友请求
+  // 获取被拒绝的好友请求
   app.get('/api/rejected-friend-requests', async (req, res) => {
     const { username } = req.query;
     if (!username) return res.json([]);
-    // 查找被拒绝的好友请求（type: friend-request-rejected, from: username）
     const msgs = await db.collection('messages').find({
       from: username,
       type: 'friend-request-rejected'
@@ -251,32 +274,30 @@ client.connect().then(() => {
   // 处理好友请求（同意/拒绝）
   app.post('/api/handle-friend-request', async (req, res) => {
     const { username, from, accept } = req.body;
-    if (!username || !from) return res.json({ success: false, message: '参数错误' });
+    if (!username || !from)
+      return res.json({ success: false, message: '参数错误' });
     const userCol = db.collection('users');
     if (accept) {
       // 双向添加好友
       await userCol.updateOne({ username }, { $addToSet: { friends: from } });
       await userCol.updateOne({ username: from }, { $addToSet: { friends: username } });
-      // 删除所有未处理的好友请求消息
-      await db.collection('messages').deleteMany({
-        from, to: username, type: 'friend-request'
-      });
-    } else {
-      // 删除所有未处理的好友请求消息
-      await db.collection('messages').deleteMany({
-        from, to: username, type: 'friend-request'
-      });
-      // 删除被拒绝消息的插入（即不再插入 friend-request-rejected 消息）
     }
-    // 新增：无论同意还是拒绝，都删除自己收到的该好友请求
+    // 删除所有该好友请求记录
     await db.collection('messages').deleteMany({
       from, to: username, type: 'friend-request'
     });
     res.json({ success: true });
+    // 根据处理结果，实时推送通知
+    if (accept) {
+      io.to(username).emit('friend-list-updated');
+      io.to(from).emit('friend-list-updated');
+    } else {
+      io.to(from).emit('friend-request-rejected', { username });
+    }
   });
 
   const port = 3001;
-  app.listen(port, () => {
+  server.listen(port, () => {
     console.log(`Server running at http://117.72.108.239:${port}`);
   });
 }).catch(err => {

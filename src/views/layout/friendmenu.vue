@@ -46,24 +46,18 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, defineExpose } from 'vue'
 import axios from 'axios'
+import { useSocket } from '@/utils/usesocket'  // 请确保此模块已创建
 
 const defaultAvatar = 'https://cdn.jsdelivr.net/gh/xiangyuecn/avatardata@main/blank-avatar.png';
-const showFriendList = ref(false); // 侧边栏显示/隐藏由 showFriendList 控制
+const showFriendList = ref(false);
 const friends = ref([]);
 const loadingFriends = ref(false);
-
 const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
+const emit = defineEmits(['open-chat']);
+const unreadMap = ref({});
+const friendRequests = ref([]);
 
-const emit = defineEmits(['open-chat'])
-
-const unreadMap = ref({}) // 新增：未读消息数
-let unreadTimer = null
-
-const friendRequests = ref([]) // 新增：收到的好友请求
-
-// 实时轮询，刷新收到的好友请求
-let friendReqTimer = null
-
+// 原有的请求函数保持不变
 const fetchFriends = async () => {
   loadingFriends.value = true;
   try {
@@ -84,39 +78,33 @@ const fetchFriends = async () => {
   }
 };
 
-// 新增：获取未读消息数
 const fetchUnread = async () => {
   const res = await axios.get('/api/unread-messages', {
     params: { username: user.value.username }
-  })
-  unreadMap.value = res.data || {}
-}
+  });
+  unreadMap.value = res.data || {};
+};
 
-// 新增：获取收到的好友请求
 const fetchFriendRequests = async () => {
   const res = await axios.get('/api/received-friend-requests', {
     params: { username: user.value.username }
-  })
-  friendRequests.value = res.data || []
-}
+  });
+  friendRequests.value = res.data || [];
+};
 
-// 新增：同意/拒绝好友请求
 const handleRequest = async (from, accept) => {
   await axios.post('/api/handle-friend-request', {
     username: user.value.username,
     from,
     accept
-  })
-  await fetchFriends()
-  await fetchFriendRequests()
-  // 通知全局刷新
-  window.refreshPendingRequests && window.refreshPendingRequests()
-}
+  });
+  await fetchFriends();
+  await fetchFriendRequests();
+  window.refreshPendingRequests && window.refreshPendingRequests();
+};
 
-// 发送好友请求（通过消息系统），整合唯一实现
 const sendFriendRequest = async (toUsername) => {
   if (!user.value.username || !toUsername) return;
-  // Debug: 检查参数
   console.log('sendFriendRequest called:', user.value.username, '->', toUsername);
   try {
     const res = await axios.post('/api/friend-request', {
@@ -124,9 +112,7 @@ const sendFriendRequest = async (toUsername) => {
       to: toUsername
     });
     console.log('sendFriendRequest axios result:', res && res.data);
-    // 可选：提示已发送
     window.ElMessage && window.ElMessage.success('好友请求已发送');
-    // 通知全局刷新pending
     window.refreshPendingRequests && window.refreshPendingRequests();
   } catch (err) {
     console.error('sendFriendRequest error:', err);
@@ -134,43 +120,70 @@ const sendFriendRequest = async (toUsername) => {
   }
 };
 
-// 鼠标移入/点击等事件调用 handleFriendListEnter
 const handleFriendListEnter = () => {
   showFriendList.value = true;
-  if (friends.value.length === 0 && user.value.username) fetchFriends();
+  if (friends.value.length === 0 && user.value.username) {
+    fetchFriends();
+  }
 };
+
 const handleFriendListLeave = () => {
   showFriendList.value = false;
 };
 
-// 修改点击事件，触发全局聊天弹窗
 const handleFriendClick = (f) => {
   console.log('FriendMenu.vue handleFriendClick', f);
-  // 触发全局事件
   if (window.openGlobalChatDialog) {
-    window.openGlobalChatDialog(f)
+    window.openGlobalChatDialog(f);
   } else {
-    emit('open-chat', f)
+    emit('open-chat', f);
   }
-  // 清除该好友的未读数
-  unreadMap.value[f.username] = 0
+  unreadMap.value[f.username] = 0;
 };
 
 onMounted(async () => {
   console.log('FriendMenu.vue onMounted');
-  await fetchFriends()
-  await fetchUnread()
-  await fetchFriendRequests()
-  unreadTimer = setInterval(fetchUnread, 1000)
-  friendReqTimer = setInterval(fetchFriendRequests, 1000) // 每秒刷新
-})
-onBeforeUnmount(() => {
-  if (unreadTimer) clearInterval(unreadTimer)
-  if (friendReqTimer) clearInterval(friendReqTimer)
-  console.log('FriendMenu.vue onBeforeUnmount');
-})
+  // 初次加载数据
+  await fetchFriends();
+  await fetchUnread();
+  await fetchFriendRequests();
 
-// 暴露 showFriendList 给父组件（Home.vue）直接赋值或调用
+  // 不再使用轮询（已删除如下代码）：
+  // unreadTimer = setInterval(fetchUnread, 1000)
+  // friendReqTimer = setInterval(fetchFriendRequests, 1000)
+
+  // 初始化 WebSocket 连接，并加入房间
+  const { socket, joinRoom } = useSocket();
+  if (user.value.username) {
+    joinRoom(user.value.username);
+  }
+
+  // 监听服务器推送的事件更新数据，无需轮询
+  socket.value.on('unread-updated', (data) => {
+    console.log("收到未读消息更新", data);
+    unreadMap.value = data;
+  });
+  socket.value.on('new-friend-request', (data) => {
+    console.log("收到新的好友请求", data);
+    // 这里可以直接更新 friendRequests，也可以调用 fetchFriendRequests() 再次获取数据
+    fetchFriendRequests();
+  });
+  socket.value.on('friend-list-updated', () => {
+    console.log("收到好友列表更新");
+    fetchFriends();
+  });
+});
+
+onBeforeUnmount(() => {
+  // 如果你的全局 socket 在整个 App 生命周期都需要，无须在此断开连接，
+  // 如果需要局部断开，可以解除事件监听:
+  // socket.value.off('unread-updated');
+  // socket.value.off('new-friend-request');
+  // socket.value.off('friend-list-updated');
+  console.log('FriendMenu.vue onBeforeUnmount');
+});
+
+// 暴露部分方法给父组件使用
 defineExpose({
   sendFriendRequest,
   fetchFriends,
@@ -250,7 +263,6 @@ defineExpose({
 .friend-request-item {
   background: #fffbe6;
   border-left: 4px solid #f56c6c;
-  /* 保证右侧操作区不被内容挤压 */
   position: relative;
 }
 .friend-request-vertical-actions {
@@ -262,7 +274,6 @@ defineExpose({
   justify-content: stretch;
   align-items: stretch;
   margin-left: 8px;
-  /* 让操作区靠右 */
   position: absolute;
   right: 18px;
   top: 50%;
@@ -270,7 +281,7 @@ defineExpose({
 }
 .action-accept,
 .action-reject {
-  flex: 1 1 0;
+  flex: 1;
   width: 100%;
   cursor: pointer;
   display: flex;
