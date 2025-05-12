@@ -91,15 +91,15 @@ onMounted(() => {
     joinRoom(user.value.username);
   }
   
-  // 监听好友请求更新事件（后端在相应数据变化时推送该事件）
+  // 监听好友请求更新事件（后端推送该事件时刷新好友列表）
   socket.value.on('pending-requests-updated', () => {
     console.log('收到 pending-requests-updated 事件');
     refreshPendingRequests();
   });
   
-  // 监听未读消息更新事件
-  socket.value.on('unread-messages-updated', () => {
-    console.log('收到 unread-messages-updated 事件');
+  // 监听未读消息更新事件，使用后端统一推送的 "unread-updated" 事件
+  socket.value.on('unread-updated', () => {
+    console.log('收到 unread-updated 事件');
     checkFriendTipUnread();
   });
   
@@ -117,12 +117,12 @@ onMounted(() => {
 
 // ****************** onBeforeUnmount 钩子 ******************
 onBeforeUnmount(() => {
-  // 如有需要，可解除 socket 事件监听（这里根据全局 socket 的管理策略决定是否解绑）
-  // const { socket } = useSocket();
-  // socket.value.off('pending-requests-updated');
-  // socket.value.off('unread-messages-updated');
-  // socket.value.off('global-chat-new-message');
-
+  // 如果需要解除事件监听，可根据全局 socket 管理策略选择是否解绑
+  /* const { socket } = useSocket();
+  socket.value.off('pending-requests-updated');
+  socket.value.off('unread-updated');
+  socket.value.off('global-chat-new-message'); */
+  
   if (window.friendMenuRef === friendMenuRef) window.friendMenuRef = undefined;
 });
 
@@ -136,7 +136,7 @@ function openGlobalChatDialog(friend) {
     // 刷新好友请求状态
     refreshPendingRequests();
   });
-  // 取消轮询的定时器，依靠 socket 新消息事件自动刷新，无需另外设置定时器
+  // 依靠 socket 推送新消息更新，无需额外的轮询定时器
 }
 window.openGlobalChatDialog = openGlobalChatDialog;
 
@@ -249,14 +249,11 @@ const handleFriendTip = (e) => {
   }
 };
 
-
 // 修正：安全判断 window 和 showUserInfo
 function onUserAvatarClick() {
-  // 避免 window 为 undefined 或 __drawdistance_disable_userinfo__ 为 true
   if (typeof window !== 'undefined' && window.__drawdistance_disable_userinfo__) {
     return;
   }
-  // showUserInfo 可能为 ref，也可能为 false，需判断
   if (showUserInfo && typeof showUserInfo === 'object' && 'value' in showUserInfo) {
     showUserInfo.value = true;
   }
