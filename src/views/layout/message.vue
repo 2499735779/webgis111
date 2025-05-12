@@ -24,7 +24,7 @@ const scrollToBottom = () => {
 // 数据获取函数（保持不变）
 // ---------------------------
 
-// 获取好友列表
+// 获取好友列表（如有需要，可在其它地方调用）
 const fetchFriends = async () => {
   const res = await axios.get('/api/user-friends', {
     params: { username: user.value.username }
@@ -40,7 +40,8 @@ const fetchMessages = async (friendName) => {
     params: { user1: user.value.username, user2: friendName }
   })
   messages.value = res.data || []
-  unreadMap.value[friendName] = 0  // 将该会话的未读消息数清零
+  // 清零当前会话的未读消息数
+  unreadMap.value[friendName] = 0
   await nextTick()
   scrollToBottom()
   console.debug('[DEBUG] messages loaded:', messages.value)
@@ -56,8 +57,7 @@ const sendMessage = async () => {
     content: inputMsg.value.trim()
   })
   inputMsg.value = ''
-  // 此处可不用主动调用 fetchMessages，因为服务器发送消息后会触发 socket 推送事件更新对话记录
-  // 这里保留调用 fetchMessages，防止网络异常导致数据不同步
+  // 这里调用 fetchMessages 以防万一，通常服务器推送会自动刷新
   await fetchMessages(selectedFriend.value)
 }
 
@@ -68,13 +68,13 @@ const fetchUnread = async () => {
   })
   unreadMap.value = res.data || {}
   console.debug('[DEBUG] fetchUnread:', unreadMap.value)
-  // 如果当前已经选择好友，主动刷新聊天记录
+  // 如果当前已选择好友，主动刷新聊天记录
   if (selectedFriend.value) {
     await fetchMessages(selectedFriend.value)
   }
 }
 
-// 处理好友请求（保持不变）
+// 处理好友请求（与消息模块通常无直接关系，可在其它文件维护）
 const handleRequest = async (msg, accept) => {
   console.debug('[DEBUG] handleRequest:', msg, accept)
   await axios.post('/api/handle-friend-request', {
@@ -87,7 +87,7 @@ const handleRequest = async (msg, accept) => {
 }
 
 // ---------------------------
-// 此处将原来的轮询删除，改为依靠 socket 推送更新
+// 使用 Socket 推送更新（取消轮询部分）
 // ---------------------------
 let socket = null
 
@@ -106,15 +106,15 @@ onMounted(async () => {
   // 监听服务器推送的未读消息更新事件
   socket.value.on('unread-updated', async (data) => {
     console.debug('[DEBUG] received unread-updated event:', data)
-    // data 可以包含服务器直接推送的最新未读消息数，也可以为空，此处选择主动拉取最新未读数据
+    // 此处直接重新拉取最新未读数据
     await fetchUnread()
   })
   
-  // 监听服务器推送的消息更新事件（例如别人向当前会话发送消息时）
-  socket.value.on('messages-updated', async (payload) => {
-    console.debug('[DEBUG] received messages-updated event:', payload)
-    // payload 中可包含消息所属会话信息
-    if (selectedFriend.value && payload.friend === selectedFriend.value) {
+  // 监听服务器推送的新消息（改为使用 "chat-message" 事件）
+  socket.value.on('chat-message', async (msg) => {
+    console.debug('[DEBUG] received chat-message event:', msg)
+    // 若当前会话与该消息对应，则刷新会话内容
+    if (selectedFriend.value && msg.from === selectedFriend.value) {
       await fetchMessages(selectedFriend.value)
     }
   })
@@ -127,17 +127,15 @@ watch(selectedFriend, async (v) => {
   }
 })
 
-// 页面卸载时，移除 socket 事件监听（如使用全局 socket 建立后不需要断开，则可选择性解绑事件）
+// 页面卸载时解绑 socket 事件监听
 onBeforeUnmount(() => {
   if (socket && socket.value) {
     socket.value.off('unread-updated')
-    socket.value.off('messages-updated')
+    socket.value.off('chat-message')
   }
 })
 
-// ---------------------------
 // 选择好友函数
-// ---------------------------
 const selectFriend = async (f) => {
   selectedFriend.value = typeof f === 'string' ? f : (f.username || f)
   console.debug('[DEBUG] selectFriend:', selectedFriend.value)

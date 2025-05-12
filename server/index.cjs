@@ -48,6 +48,18 @@ client.connect().then(() => {
   db = client.db('webgis0');
   console.log('Connected to MongoDB Atlas');
 
+  // 定义 computeUnreadMapForUser 函数，用于计算某个用户的未读消息映射
+  const computeUnreadMapForUser = async (username) => {
+    if (!username) return {};
+    const msgs = await db.collection('messages').aggregate([
+      { $match: { to: username, read: false } },
+      { $group: { _id: '$from', count: { $sum: 1 } } }
+    ]).toArray();
+    const result = {};
+    msgs.forEach(m => { result[m._id] = m.count; });
+    return result;
+  };
+
   // 用户注册
   app.post('/api/user-register', async (req, res) => {
     const { username, password } = req.body;
@@ -157,7 +169,7 @@ client.connect().then(() => {
     })));
   });
 
-  // 发送消息（普通消息或好友请求）
+  // 发送消息接口（普通消息或好友请求）
   app.post('/api/messages', async (req, res) => {
     const { from, to, content, type } = req.body;
     if (!from || !to || !content)
@@ -172,8 +184,11 @@ client.connect().then(() => {
     };
     await db.collection('messages').insertOne(msg);
     res.json({ success: true });
-    // 实时推送新消息给接收者
-    io.to(to).emit('new-message', msg);
+    // 实时推送新消息给接收者，事件名称统一为 'chat-message'
+    io.to(to).emit('chat-message', msg);
+    // 计算最新的未读消息状态并推送给目标用户
+    const updatedUnreadMap = await computeUnreadMapForUser(to);
+    io.to(to).emit('unread-updated', updatedUnreadMap);
   });
 
   // 获取与某好友的消息（含好友请求）
@@ -194,7 +209,7 @@ client.connect().then(() => {
     res.json(msgs);
   });
 
-  // 获取所有未读消息数
+  // 获取所有未读消息数（拉取接口）
   app.get('/api/unread-messages', async (req, res) => {
     const { username } = req.query;
     if (!username) return res.json({});
@@ -221,13 +236,13 @@ client.connect().then(() => {
       read: false,
       createdAt: new Date()
     });
-    // 删除被拒绝的记录（如果有）
+    // 删除被拒绝的记录
     await db.collection('messages').deleteMany({
       from, to, type: 'friend-request-rejected'
     });
     res.json({ success: true });
-    // 实时推送好友请求通知给目标用户
-    io.to(to).emit('new-friend-request', { from });
+    // 实时推送好友请求更新通知给目标用户，统一使用 'pending-requests-updated'
+    io.to(to).emit('pending-requests-updated');
   });
 
   // 获取自己发出的未处理好友请求
@@ -287,13 +302,9 @@ client.connect().then(() => {
       from, to: username, type: 'friend-request'
     });
     res.json({ success: true });
-    // 根据处理结果，实时推送通知
-    if (accept) {
-      io.to(username).emit('friend-list-updated');
-      io.to(from).emit('friend-list-updated');
-    } else {
-      io.to(from).emit('friend-request-rejected', { username });
-    }
+    // 推送更新通知（统一使用 'pending-requests-updated'）
+    io.to(username).emit('pending-requests-updated');
+    io.to(from).emit('pending-requests-updated');
   });
 
   const port = 3001;

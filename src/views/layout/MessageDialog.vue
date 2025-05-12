@@ -1,6 +1,7 @@
 <script setup>
-import { ref, watch, nextTick, onBeforeUnmount, defineExpose } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount, defineExpose } from 'vue'
 import axios from 'axios'
+import { useSocket } from '@/utils/usesocket'  // 请确保该模块路径正确
 
 const props = defineProps({
   friend: { type: Object, required: true },
@@ -12,8 +13,6 @@ const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
 const messages = ref([])
 const inputMsg = ref('')
 const chatListRef = ref(null)
-
-let timer = null
 
 // 拉取消息并滚动到底部
 const fetchMessages = async () => {
@@ -29,17 +28,10 @@ const fetchMessages = async () => {
   scrollToBottom()
 }
 
-// 暴露 refresh 方法
+// 暴露 refresh 方法，方便外部调用刷新
 defineExpose({
   refresh: fetchMessages
 })
-
-// 打开对话框时拉取最新消息并显示，并启动定时刷新
-const handleDialogOpen = async () => {
-  await fetchMessages()
-  if (timer) clearInterval(timer)
-  timer = setInterval(fetchMessages, 1000)
-}
 
 const sendMessage = async () => {
   if (!inputMsg.value.trim() || !props.friend?.username) return
@@ -49,6 +41,7 @@ const sendMessage = async () => {
     content: inputMsg.value.trim()
   })
   inputMsg.value = ''
+  // 此处可以调用 fetchMessages() 作为备用（通常 socket 推送即可更新）
   await fetchMessages()
 }
 
@@ -58,21 +51,55 @@ const scrollToBottom = () => {
   }
 }
 
-// 只要对话框打开就刷新历史记录并启动定时刷新
-watch(() => props.visible, v => {
-  if (v) {
-    handleDialogOpen()
-  } else {
-    if (timer) clearInterval(timer)
+let socket = null
+
+onMounted(async () => {
+  // 对话框打开时先拉取历史消息
+  if (props.visible) {
+    await fetchMessages()
   }
-})
-// 切换好友时也刷新
-watch(() => props.friend, (newVal) => {
-  if (props.visible) handleDialogOpen()
+  // 初始化 socket 连接，并加入用户房间
+  const socketData = useSocket()
+  socket = socketData.socket
+  if (user.value.username) {
+    socketData.joinRoom(user.value.username)
+  }
+  // 监听后端推送的新消息事件（使用 "chat-message" 事件，与后端保持一致）
+  socket.value.on('chat-message', async (msg) => {
+    console.debug('[DEBUG] messageDialog received chat-message:', msg)
+    // 如果当前对话正在与该好友进行，同时消息来自该好友，则刷新消息记录
+    if (props.visible && props.friend?.username && msg.from === props.friend.username) {
+      await fetchMessages()
+    }
+  })
+  // 监听未读消息更新事件
+  socket.value.on('unread-updated', async (data) => {
+    console.debug('[DEBUG] messageDialog received unread-updated:', data)
+    // 刷新当前对话的消息（如有需要，也可单独更新未读状态）
+    if (props.visible && props.friend?.username) {
+      await fetchMessages()
+    }
+  })
 })
 
+// 当对话框或好友发生变化时，重新拉取历史消息
+watch(() => props.visible, async (val) => {
+  if (val) {
+    await fetchMessages()
+  }
+})
+watch(() => props.friend, async (newVal) => {
+  if (props.visible) {
+    await fetchMessages()
+  }
+})
+
+// 页面卸载时解绑 socket 事件监听
 onBeforeUnmount(() => {
-  if (timer) clearInterval(timer)
+  if (socket && socket.value) {
+    socket.value.off('chat-message')
+    socket.value.off('unread-updated')
+  }
 })
 </script>
 
