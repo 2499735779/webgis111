@@ -1,13 +1,20 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const http = require('http');
+const https = require('https');    // 使用 https 模块
+const fs = require('fs');          // 用于读取证书和私钥文件
 const { Server } = require('socket.io');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
+
+// 读取项目根目录 ssl 文件夹下的证书和私钥
+const options = {
+  key: fs.readFileSync('./ssl/privatekey.pem'),
+  cert: fs.readFileSync('./ssl/certificate.pem')
+};
 
 const uri = "mongodb+srv://cstgkangrui:Cu4RV8xkbdjpl6gK@webgis0.tszfumn.mongodb.net/?retryWrites=true&w=majority&appName=webgis0";
 const client = new MongoClient(uri, {
@@ -20,8 +27,8 @@ const client = new MongoClient(uri, {
 
 let db;
 
-// 创建 HTTP 服务器，并经过 Socket.IO 包装实现 WebSocket 通信
-const server = http.createServer(app);
+// 使用 HTTPS 创建服务器，并经过 Socket.IO 包装实现 WebSocket 通信
+const server = https.createServer(options, app);
 const io = new Server(server, {
   cors: {
     origin: "*",  // 生产环境建议根据实际情况设置允许的跨域源
@@ -33,7 +40,7 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
   console.log("New client connected:", socket.id);
 
-  // 客户端完成身份验证后，调用 join 将自身加入以用户名命名的房间
+  // 客户端完成身份验证后，将自身加入以用户名命名的房间
   socket.on('join', (username) => {
     socket.join(username);
     console.log(`Socket ${socket.id} joined room ${username}`);
@@ -307,9 +314,10 @@ client.connect().then(() => {
     io.to(from).emit('pending-requests-updated');
   });
 
-  const port = 3001;
+  // 启动 HTTPS 服务，监听 443 端口（请确保防火墙或网络策略允许该端口访问）
+  const port = 443;
   server.listen(port, () => {
-    console.log(`Server running at http://117.72.108.239:${port}`);
+    console.log(`HTTPS Server running on port ${port}`);
   });
 }).catch(err => {
   console.error('Failed to connect to MongoDB Atlas:', err);
