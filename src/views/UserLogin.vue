@@ -33,27 +33,46 @@ const formRef = ref()
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
 const handleLogin = async () => {
+  // 使用 formRef.validate 进行表单验证
   formRef.value.validate(async valid => {
-    if (!valid) return
+    if (!valid) {
+      console.log("表单验证失败", form.value)
+      return
+    }
     msg.value = ''
     try {
+      // 输出请求前调试信息
+      console.log("发送登录请求，参数：", JSON.stringify(form.value))
+      
+      // 发送登录请求
       const res = await axios.post('/api/user-login', {
         username: form.value.username,
-        password: form.value.password
+        password: form.value.password,
       })
+      
+      // 输出响应数据
+      console.log("登录响应：", res)
+      
       if (res.data.success) {
         msg.value = '登录成功'
         localStorage.setItem('user', JSON.stringify(res.data.user))
+        // 输出调试信息：用户登录成功后刷新页面
+        console.log("登录成功，用户数据：", res.data.user)
         window.location.reload()
-        return
       } else {
         msg.value = res.data.message || '登录失败'
+        console.log("登录失败，接口返回的消息：", res.data)
       }
     } catch (e) {
+      // 输出详细错误信息帮助调试
+      console.error("登录请求发生错误：", e)
+      if (e.response) {
+        console.error("响应错误数据：", e.response.data)
+      }
       msg.value = '网络错误'
     }
   })
@@ -63,16 +82,26 @@ const onLogin = handleLogin
 
 const onRegister = () => {
   formRef.value.validate(async valid => {
-    if (!valid) return
+    if (!valid) {
+      console.log("注册：表单验证失败", form.value)
+      return
+    }
     msg.value = ''
     try {
+      console.log("发送注册请求，参数：", JSON.stringify(form.value))
       const res = await axios.post('/api/user-register', form.value)
+      console.log("注册响应：", res)
       if (res.data.success) {
         msg.value = '注册成功，请登录'
       } else {
         msg.value = res.data.message || '注册失败'
+        console.log("注册失败，接口返回的消息：", res.data)
       }
     } catch (e) {
+      console.error("注册请求发生错误：", e)
+      if (e.response) {
+        console.error("响应错误数据：", e.response.data)
+      }
       msg.value = '网络错误'
     }
   })
