@@ -94,6 +94,9 @@ client.connect().then(() => {
     if (!user) return res.json({ success: false, message: '账号或密码错误' });
     res.json({ success: true, user: { username: user.username } });
   });
+  app.get('/api/user-login', (req, res) => {
+  res.json({ message: "This endpoint requires a POST request." });
+});
 
   // 用户头像上传/更换
   app.post('/api/user-avatar', async (req, res) => {
