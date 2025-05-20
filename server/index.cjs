@@ -85,20 +85,26 @@ client.connect().then(() => {
     await userCol.insertOne({ username, password });
     res.json({ success: true });
   });
-
-  // 用户登录 POST 路由，处理登录请求
 app.post('/api/user-login', async (req, res) => {
-  const { username, password } = req.body;
-  const userCol = db.collection('users');
   try {
+    // 添加调试日志，这样你可以在服务器日志中看到实际收到的请求体数据
+    console.log("收到 POST /api/user-login 请求, req.body:", req.body);
+    
+    const { username, password } = req.body;
+    const userCol = db.collection('users');
     const user = await userCol.findOne({ username, password });
-    if (!user) return res.json({ success: false, message: '账号或密码错误' });
+    
+    if (!user) {
+      console.log("用户未找到:", username);
+      return res.json({ success: false, message: '账号或密码错误' });
+    }
     res.json({ success: true, user: { username: user.username } });
   } catch (err) {
-    console.error('Error in /api/user-login:', err);
+    console.error("Error in /api/user-login:", err);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
   app.get('/api/user-login', (req, res) => {
   res.json({ message: "This endpoint requires a POST request." });
 });
