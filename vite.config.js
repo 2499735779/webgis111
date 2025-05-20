@@ -24,7 +24,7 @@ export default defineConfig({
       },
       // 修改后的 /api 代理规则
       '/api': {
-        target: 'http://117.72.108.239:3001',
+        target: 'https://117.72.108.239',
         changeOrigin: true,
         secure: false
         // 没有 rewrite 规则，保持 /api 前缀不变
