@@ -1,3 +1,4 @@
-/api/*    https://117.72.108.239/api/:splat    200!
+/api/*    https://kexiaohua.online/api/:splat    200!
+
 /*        /index.html                           200
 

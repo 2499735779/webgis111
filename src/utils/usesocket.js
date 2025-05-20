@@ -8,9 +8,10 @@ export function useSocket() {
   // 单例模式，确保仅建立一次连接
   if (!socket.value) {
     // 修改 URL 为 HTTPS 模式，让连接使用 wss:// 协议
-    socket.value = io("https://117.72.108.239", {
-      transports: ["websocket"],
-    });
+    socket.value = io("https://kexiaohua.online", {
+  transports: ["websocket"],
+});
+
     console.log("WebSocket 已初始化");
   }
 
