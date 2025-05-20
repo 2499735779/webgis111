@@ -86,14 +86,19 @@ client.connect().then(() => {
     res.json({ success: true });
   });
 
-  // 用户登录
-  app.post('/api/user-login', async (req, res) => {
-    const { username, password } = req.body;
-    const userCol = db.collection('users');
+  // 用户登录 POST 路由，处理登录请求
+app.post('/api/user-login', async (req, res) => {
+  const { username, password } = req.body;
+  const userCol = db.collection('users');
+  try {
     const user = await userCol.findOne({ username, password });
     if (!user) return res.json({ success: false, message: '账号或密码错误' });
     res.json({ success: true, user: { username: user.username } });
-  });
+  } catch (err) {
+    console.error('Error in /api/user-login:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
   app.get('/api/user-login', (req, res) => {
   res.json({ message: "This endpoint requires a POST request." });
 });
