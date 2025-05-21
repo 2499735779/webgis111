@@ -232,16 +232,28 @@ const isLoginPage = computed(() => route.name === 'UserLogin');
 const hideSwitchPanel = computed(() => isLoginPage.value || showUserInfo.value || globalDialogVisible.value);
 
 // ****************** 打开好友列表方法 ******************
+// 修改：打开好友列表时同时通知后端清除“红点提示”
 const showFriendList = () => {
   if (friendMenuRef.value) {
     friendMenuRef.value.showFriendList = true;
-    friendTipHasUnread.value = false;  // 关闭红点提示
+    // 发送 socket 消息通知后端，标记该用户的好友提示已读
+    const { socket } = useSocket();
+    if (socket.value) {
+      socket.value.emit('clear-friend-tip', { username: user.value.username });
+    }
+    // 同时在前端清除红点状态
+    friendTipHasUnread.value = false;
   }
 };
 
 const handleFriendTip = (e) => {
   e && e.preventDefault && e.preventDefault();
-   friendTipHasUnread.value = false;
+  // 发送 socket 消息（或 HTTP 请求）通知后端，标记为已读
+  const { socket } = useSocket();
+  if (socket.value) {
+    socket.value.emit('clear-friend-tip', { username: user.value.username });
+  }
+  friendTipHasUnread.value = false;
   if (friendMenuRef.value) {
     if (typeof friendMenuRef.value.showFriendList === 'function') {
       friendMenuRef.value.showFriendList();
@@ -249,7 +261,7 @@ const handleFriendTip = (e) => {
       friendMenuRef.value.showFriendList = true;
     }
   }
-};
+  };
 
 // 修正：安全判断 window 和 showUserInfo
 function onUserAvatarClick() {

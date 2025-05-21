@@ -45,6 +45,25 @@ io.on('connection', (socket) => {
     socket.join(username);
     console.log(`Socket ${socket.id} joined room ${username}`);
   });
+  // 新增：监听前端发来的 "clear-friend-tip" 事件
+  socket.on('clear-friend-tip', async (data) => {
+    const { username } = data;
+    if (!username) return;
+    try {
+      // 将该用户收到的所有未读好友请求标记为已读
+      await db.collection('messages').updateMany(
+        { to: username, type: 'friend-request', read: false },
+        { $set: { read: true } }
+      );
+      console.log(`Cleared friend tip for user ${username}`);
+      
+      // 更新未读消息统计并通知用户
+      const updatedUnreadMap = await computeUnreadMapForUser(username);
+      io.to(username).emit('unread-updated', updatedUnreadMap);
+    } catch (err) {
+      console.error("Error clearing friend tip for user", username, err);
+    }
+  });
   
   socket.on('disconnect', () => {
     console.log("Client disconnected:", socket.id);
