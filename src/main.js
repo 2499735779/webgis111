@@ -13,7 +13,7 @@ import App from './App.vue'
 import router from './router'
 
 import './assets/main.css'
-
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 const app = createApp(App)
 
 // 定义全局变量 cxApp，用于存储天地图密钥
