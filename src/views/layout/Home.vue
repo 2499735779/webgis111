@@ -235,11 +235,13 @@ const hideSwitchPanel = computed(() => isLoginPage.value || showUserInfo.value |
 const showFriendList = () => {
   if (friendMenuRef.value) {
     friendMenuRef.value.showFriendList = true;
+    friendTipHasUnread.value = false;  // 关闭红点提示
   }
 };
 
 const handleFriendTip = (e) => {
   e && e.preventDefault && e.preventDefault();
+   friendTipHasUnread.value = false;
   if (friendMenuRef.value) {
     if (typeof friendMenuRef.value.showFriendList === 'function') {
       friendMenuRef.value.showFriendList();
