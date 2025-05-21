@@ -61,8 +61,11 @@ const handleLogin = async () => {
         msg.value = '登录成功'
         localStorage.setItem('user', JSON.stringify(res.data.user))
         // 输出调试信息：用户登录成功后刷新页面
-        console.log("登录成功，用户数据：", res.data.user)
-          router.push({ name: 'Map' });
+       console.log("登录成功，用户数据：", res.data.user);
+       router.push({ name: 'Map' }).then(() => {
+        window.location.reload();
+      });
+
       } else {
         msg.value = res.data.message || '登录失败'
         console.log("登录失败，接口返回的消息：", res.data)
