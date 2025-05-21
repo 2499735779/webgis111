@@ -163,7 +163,7 @@ onMounted(async () => {
     console.log("收到未读消息更新", data);
     unreadMap.value = data;
   });
-  socket.value.on('new-friend-request', (data) => {
+  socket.value.on('pending-requests-updated', (data) => {
     console.log("收到新的好友请求", data);
     // 这里可以直接更新 friendRequests，也可以调用 fetchFriendRequests() 再次获取数据
     fetchFriendRequests();
