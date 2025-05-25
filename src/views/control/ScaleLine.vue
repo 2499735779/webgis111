@@ -10,19 +10,39 @@ let control = null
 let mapInstance = null
 const visible = ref(true)
 
-// 监听 switch.vue 的开关事件
+// 全局挂载标记，防止重复挂载
+if (!window.__scaleLineMounted__) {
+  window.__scaleLineMounted__ = false
+}
+
+function removeAllScaleLineControls(map) {
+  if (!map) return
+  map.getControls().getArray().forEach(ctrl => {
+    if (
+      ctrl instanceof ScaleLine ||
+      (ctrl.constructor && ctrl.constructor.name === 'ScaleLine')
+    ) {
+      map.removeControl(ctrl)
+    }
+  })
+}
+
 onMounted(() => {
+  if (window.__scaleLineMounted__) return
   mapInstance = window.map
   if (!mapInstance) {
     window.addEventListener('map-created', (e) => {
       mapInstance = e.detail
+      removeAllScaleLineControls(mapInstance)
       setupScaleLine()
+      window.__scaleLineMounted__ = true
     }, { once: true })
   } else {
+    removeAllScaleLineControls(mapInstance)
     setupScaleLine()
+    window.__scaleLineMounted__ = true
   }
 
-  // 监听开关事件
   if (window.__scaleLineEmitter__) {
     window.__scaleLineEmitter__.on('scaleLineSwitch', (val) => {
       visible.value = val
@@ -35,13 +55,8 @@ onMounted(() => {
 
 function setupScaleLine() {
   if (!mapInstance) return
-  if (control) {
-    mapInstance.removeControl(control)
-    control = null
-  }
-  control = new ScaleLine({
-    // 不要自定义 className，使用 OpenLayers 默认
-  })
+  removeAllScaleLineControls(mapInstance)
+  control = new ScaleLine({})
   mapInstance.addControl(control)
   if (!visible.value && control.element) {
     control.element.style.display = 'none'
@@ -49,21 +64,17 @@ function setupScaleLine() {
 }
 
 onBeforeUnmount(() => {
-  if (mapInstance && control) {
-    mapInstance.removeControl(control)
-    control = null
-  }
+  // 不再移除控件，始终只挂载一次
 })
 </script>
 
 <style>
-/* 只做微调，不要用 position: fixed */
 .ol-scale-line {
   z-index: 3000 !important;
   background: rgba(255,255,255,0.95);
   border-radius: 4px;
   padding: 2px 8px;
-  margin: 0 20px 20px 0; /* 右下角微调 */
+  margin: 0 20px 20px 0;
   font-size: 14px;
   min-width: 80px;
 }

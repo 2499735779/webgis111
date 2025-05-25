@@ -12,18 +12,31 @@ let mapInstance = null
 const visible = ref(true)
 let retryCount = 0
 
+// 全局挂载标记，防止重复挂载
+if (!window.__overviewMapMounted__) {
+  window.__overviewMapMounted__ = false
+}
+
+function removeAllOverviewMapControls(map) {
+  if (!map) return
+  map.getControls().getArray().forEach(ctrl => {
+    if (
+      ctrl instanceof OverviewMap ||
+      (ctrl.constructor && ctrl.constructor.name === 'OverviewMap')
+    ) {
+      map.removeControl(ctrl)
+    }
+  })
+}
+
 function getCurrentBaseLayer() {
   if (!mapInstance) return null
-  // 只返回当前 visible 的底图图层
   return mapInstance.getLayers().getArray().find(l => l.getVisible() && l.get('title'))
 }
 
 function setupOverviewMap() {
   if (!mapInstance) return
-  if (control) {
-    mapInstance.removeControl(control)
-    control = null
-  }
+  removeAllOverviewMapControls(mapInstance)
   const baseLayer = getCurrentBaseLayer()
   if (!baseLayer || typeof baseLayer.getSource !== 'function') {
     if (retryCount < 10) {
@@ -43,17 +56,19 @@ function setupOverviewMap() {
 }
 
 onMounted(() => {
+  if (window.__overviewMapMounted__) return
   mapInstance = window.map
   if (!mapInstance) {
     window.addEventListener('map-created', (e) => {
       mapInstance = e.detail
       setupOverviewMap()
+      window.__overviewMapMounted__ = true
     }, { once: true })
   } else {
     setupOverviewMap()
+    window.__overviewMapMounted__ = true
   }
 
-  // 监听开关事件
   if (window.__overviewMapEmitter__) {
     window.__overviewMapEmitter__.on('overviewMapSwitch', (val) => {
       visible.value = val
@@ -63,17 +78,13 @@ onMounted(() => {
     })
   }
 
-  // 监听底图切换事件，重建鹰眼控件
   window.addEventListener('refresh-basemap', () => {
     setupOverviewMap()
   })
 })
 
 onBeforeUnmount(() => {
-  if (mapInstance && control) {
-    mapInstance.removeControl(control)
-    control = null
-  }
+  // 不再移除控件，始终只挂载一次
 })
 </script>
 

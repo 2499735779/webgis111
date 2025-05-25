@@ -303,9 +303,20 @@ onMounted(() => {
   if (window.map) {
     console.log('地图实例已存在，复用现有实例:', window.map);
     olmap = window.map;
+    // 关键：移除所有已存在的控件，避免重复
+    const controlsToRemove = [];
+    olmap.getControls().forEach(ctrl => {
+      const name = ctrl.constructor && ctrl.constructor.name;
+      if (
+        name === 'MousePosition' ||
+        name === 'ScaleLine' ||
+        name === 'OverviewMap'
+      ) {
+        controlsToRemove.push(ctrl);
+      }
+    });
+    controlsToRemove.forEach(ctrl => olmap.removeControl(ctrl));
     emit('created', window.map);
-    mousePositionReady.value = true; // 地图已存在，直接标记ready
-    // 触发一次底图初始化为天地图
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
     }, 0);
@@ -337,11 +348,24 @@ onMounted(() => {
 
         emit('created', map);
 
+        // 关键：移除所有已存在的控件，避免重复
+        const controlsToRemove = [];
+        map.getControls().forEach(ctrl => {
+          const name = ctrl.constructor && ctrl.constructor.name;
+          if (
+            name === 'MousePosition' ||
+            name === 'ScaleLine' ||
+            name === 'OverviewMap'
+          ) {
+            controlsToRemove.push(ctrl);
+          }
+        });
+        controlsToRemove.forEach(ctrl => map.removeControl(ctrl));
+
         window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
         }, 0);
-        mousePositionReady.value = true;
         startWatchUserPosition();
       },
       err => {
@@ -364,11 +388,24 @@ onMounted(() => {
 
         emit('created', map);
 
+        // 关键：移除所有已存在的控件，避免重复
+        const controlsToRemove = [];
+        map.getControls().forEach(ctrl => {
+          const name = ctrl.constructor && ctrl.constructor.name;
+          if (
+            name === 'MousePosition' ||
+            name === 'ScaleLine' ||
+            name === 'OverviewMap'
+          ) {
+            controlsToRemove.push(ctrl);
+          }
+        });
+        controlsToRemove.forEach(ctrl => map.removeControl(ctrl));
+
         window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
         }, 0);
-        mousePositionReady.value = true;
         startWatchUserPosition();
       }
     );
@@ -392,11 +429,24 @@ onMounted(() => {
 
     emit('created', map);
 
+    // 关键：移除所有已存在的控件，避免重复
+    const controlsToRemove = [];
+    map.getControls().forEach(ctrl => {
+      const name = ctrl.constructor && ctrl.constructor.name;
+      if (
+        name === 'MousePosition' ||
+        name === 'ScaleLine' ||
+        name === 'OverviewMap'
+      ) {
+        controlsToRemove.push(ctrl);
+      }
+    });
+    controlsToRemove.forEach(ctrl => map.removeControl(ctrl));
+
     window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
     }, 0);
-    mousePositionReady.value = true;
     startWatchUserPosition();
   }
 });
@@ -453,9 +503,9 @@ onMounted(() => {
       </div>
     </el-dialog>
     <!-- 挂载控件 -->
-    <MousePosition v-if="mousePositionReady" />
-    <ScaleLine v-if="mousePositionReady" />
-    <OverviewMap v-if="mousePositionReady" />
+    <MousePosition />
+    <ScaleLine />
+    <OverviewMap />
   </div>
 </template>
 
