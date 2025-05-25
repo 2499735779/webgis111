@@ -228,11 +228,11 @@ const renderUserMarkers = (users) => {
     console.warn('olmap 未初始化，无法渲染用户 marker');
     return;
   }
-  // 不要清理 overlays，只渲染新增的用户
-  // overlays.forEach(ov => {
-  //   if (olmap) olmap.removeOverlay(ov);
-  // });
-  // overlays.length = 0;
+  // 修正：每次渲染前清理 overlays，避免叠加
+  overlays.forEach(ov => {
+    if (olmap) olmap.removeOverlay(ov);
+  });
+  overlays.length = 0;
 
   users.forEach(u => {
     if (u.lng == null || u.lat == null) return;
@@ -332,8 +332,8 @@ const renderUserMarkers = (users) => {
 // 搜索附近用户（3km内，带头像）
 const searchNearby = async () => {
   if (!olmap) return;
-  // 不要清理 overlays
-  // clearNearbyOverlays();
+  // 修正：每次搜索前清理 overlays，避免叠加
+  clearNearbyOverlays();
   errorMsg.value = '正在搜索附近用户...';
   const center = olmap.getView().getCenter();
   const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
