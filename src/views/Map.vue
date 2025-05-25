@@ -8,6 +8,9 @@ import axios from 'axios';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import Overlay from 'ol/Overlay.js';
 import MousePosition from './control/MousePosition.vue';
+// 新增
+import ScaleLine from './control/ScaleLine.vue';
+import OverviewMap from './control/OverviewMap.vue';
 
 // 获取当前登录用户信息
 const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -449,8 +452,10 @@ onMounted(() => {
         </template>
       </div>
     </el-dialog>
-    <!-- 挂载鼠标位置控件 -->
+    <!-- 挂载控件 -->
     <MousePosition v-if="mousePositionReady" />
+    <ScaleLine v-if="mousePositionReady" />
+    <OverviewMap v-if="mousePositionReady" />
   </div>
 </template>
 

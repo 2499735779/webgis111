@@ -1,61 +1,72 @@
-<script setup>
-import ScaleLine from 'ol/control/ScaleLine.js'
-import Map from '../Map.vue'
-
-let olmap = null
-let scale = null
-const createScale = map =>
-{
-  olmap = map
-  onScaleChange()
-}
-
-const onScaleChange = type =>
-{
-  if (!olmap)
-    return
-
-  // 移除旧比例尺
-  scale && olmap.removeControl(scale)
-  // 创建新比例尺，指定 target
-  scale = new ScaleLine({
-    bar: type === 'bar',
-    target: document.getElementById('scale-container') // 关键：指定自定义容器
-  })
-  olmap.addControl(scale)
-}
-</script>
-
 <template>
-  <Map @created="createScale"></Map>
-  <div id="scale-container" class="scale-custom"></div>
-  <div class="control">
-    <el-button @click="onScaleChange('line')">比例尺线</el-button>
-    <el-button @click="onScaleChange('bar')">比例尺条</el-button>
-  </div>
+  <!-- 此组件不渲染内容，控件由 OpenLayers 注入 -->
 </template>
 
-<style>
-.control {
-  position: absolute;
-  left: 200px;
-  top: 0;           /* 顶部对齐，浮于menu之上 */
-  width: 200px;
-  z-index: 1101;    /* 比menu更高，确保浮于其上 */
-  pointer-events: auto;
-  background: rgba(255,255,255,0.8);
-  padding: 4px 0;
-  border-radius: 4px;
+<script setup>
+import ScaleLine from 'ol/control/ScaleLine.js'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+
+let control = null
+let mapInstance = null
+const visible = ref(true)
+
+// 监听 switch.vue 的开关事件
+onMounted(() => {
+  mapInstance = window.map
+  if (!mapInstance) {
+    window.addEventListener('map-created', (e) => {
+      mapInstance = e.detail
+      setupScaleLine()
+    }, { once: true })
+  } else {
+    setupScaleLine()
+  }
+
+  // 监听开关事件
+  if (window.__scaleLineEmitter__) {
+    window.__scaleLineEmitter__.on('scaleLineSwitch', (val) => {
+      visible.value = val
+      if (control && control.element) {
+        control.element.style.display = val ? '' : 'none'
+      }
+    })
+  }
+})
+
+function setupScaleLine() {
+  if (!mapInstance) return
+  if (control) {
+    mapInstance.removeControl(control)
+    control = null
+  }
+  control = new ScaleLine({
+    className: 'scaleLinePos'
+  })
+  mapInstance.addControl(control)
+  if (!visible.value && control.element) {
+    control.element.style.display = 'none'
+  }
 }
-.scale-custom {
-  position: absolute;
-  left: 200px;      /* 菜单宽度 */
-  top: 0;           /* 顶部对齐，浮于menu之上 */
-  width: 200px;
-  z-index: 1200;    /* 更高，确保比例尺控件浮于menu之上 */
+
+onBeforeUnmount(() => {
+  if (mapInstance && control) {
+    mapInstance.removeControl(control)
+    control = null
+  }
+})
+</script>
+
+<style>
+.scaleLinePos {
+  position: fixed;
+  left: 40px;
+  bottom: 20px;
+  z-index: 3000;
   background: rgba(255,255,255,0.8);
-  border-radius: 4px;
   padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 80px;
   pointer-events: none;
 }
 </style>

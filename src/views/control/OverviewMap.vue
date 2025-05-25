@@ -1,35 +1,73 @@
+<template>
+  <!-- 此组件不渲染内容，控件由 OpenLayers 注入 -->
+</template>
+
 <script setup>
 import OverviewMap from 'ol/control/OverviewMap.js'
 import TileLayer from 'ol/layer/Tile.js'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
-import Map from '../Map.vue'
+let control = null
+let mapInstance = null
+const visible = ref(true)
 
-const createOverviewMap = map =>
-{
-  // 获取主地图
-  const baseLayer = map.getLayers().item(0)
+onMounted(() => {
+  mapInstance = window.map
+  if (!mapInstance) {
+    window.addEventListener('map-created', (e) => {
+      mapInstance = e.detail
+      setupOverviewMap()
+    }, { once: true })
+  } else {
+    setupOverviewMap()
+  }
 
-  // 创建鹰眼控件
-  const miniMap = new OverviewMap({
+  // 监听开关事件
+  if (window.__overviewMapEmitter__) {
+    window.__overviewMapEmitter__.on('overviewMapSwitch', (val) => {
+      visible.value = val
+      if (control && control.element) {
+        control.element.style.display = val ? '' : 'none'
+      }
+    })
+  }
+})
+
+function setupOverviewMap() {
+  if (!mapInstance) return
+  if (control) {
+    mapInstance.removeControl(control)
+    control = null
+  }
+  // 取第一个底图图层作为鹰眼底图
+  const baseLayer = mapInstance.getLayers().item(0)
+  control = new OverviewMap({
     collapsed: false,
+    className: 'overviewMapPos',
     layers: [new TileLayer({ source: baseLayer.getSource() })]
   })
-
-  // 控件添加到地图
-  map.addControl(miniMap)
+  mapInstance.addControl(control)
+  if (!visible.value && control.element) {
+    control.element.style.display = 'none'
+  }
 }
 
+onBeforeUnmount(() => {
+  if (mapInstance && control) {
+    mapInstance.removeControl(control)
+    control = null
+  }
+})
 </script>
 
-<template>
-  <Map @created="createOverviewMap"></Map>
-</template>
-
 <style>
-.ol-overviewmap {
-  position: absolute !important;
-  left: 200px !important;   /* 菜单宽度 */
-  bottom: 0 !important;     /* 紧贴底部 */
-  z-index: 1001 !important;
+.overviewMapPos {
+  position: fixed !important;
+  left: 40px !important;
+  bottom: 60px !important;
+  z-index: 3000 !important;
+  background: rgba(255,255,255,0.8);
+  border-radius: 4px;
+  pointer-events: none;
 }
 </style>

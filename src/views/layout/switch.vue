@@ -33,8 +33,20 @@ import mitt from 'mitt'
 const emitter = mitt()
 window.__mousePositionEmitter__ = emitter
 
+const scaleLineEmitter = mitt()
+window.__scaleLineEmitter__ = scaleLineEmitter
+
+const overviewMapEmitter = mitt()
+window.__overviewMapEmitter__ = overviewMapEmitter
+
 watch(mousePositionControl, (val) => {
   emitter.emit('mousePositionSwitch', val)
+})
+watch(scaleControl, (val) => {
+  scaleLineEmitter.emit('scaleLineSwitch', val)
+})
+watch(overviewControl, (val) => {
+  overviewMapEmitter.emit('overviewMapSwitch', val)
 })
 
 onMounted(() => {
