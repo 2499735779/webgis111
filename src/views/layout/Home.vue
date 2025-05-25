@@ -5,14 +5,13 @@ import Map from '../Map.vue';
 import PublicMap from '../dataService/PublicMap.vue';
 import FriendMenu from './friendmenu.vue';
 import MessageDialog from './MessageDialog.vue';
+/*import Drawdistance from '../graDraw/Drawdistance.vue';*/
 import Drawdistance from '../graDraw/Drawdistance.vue';
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useRoute } from 'vue-router';
-// 导入封装好的 socket 模块，路径根据你的项目目录调整
-import { useSocket } from '@/utils/usesocket';
 
-// 全局对话框显示状态，用于跨组件通信
+// 全局事件总线用于跨组件通信
 const globalDialogVisible = ref(false);
 window.setGlobalDialogVisible = (v) => { globalDialogVisible.value = v; };
 
@@ -30,11 +29,11 @@ const globalChatDialog = ref(false);
 const globalChatFriend = ref(null);
 const messageDialogRef = ref(null);
 
-// 保存好友请求状态
+let globalMsgTimer = null;
 const pendingFriendRequests = ref([]);
 const rejectedFriendRequests = ref([]);
 
-// 红点提示（未读消息或新好友请求）
+// 新增：红点提示
 const friendTipHasUnread = ref(false);
 
 // 检查是否有未读消息或好友请求
@@ -74,78 +73,50 @@ async function refreshPendingRequests() {
   rejectedFriendRequests.value = rejectedRes.data || [];
 }
 
-// ****************** 以下轮询定时器部分已移除 ******************
-// let pendingTimer = null;
-// let friendTipTimer = null;
-// let globalMsgTimer = null;
-
-// ****************** onMounted 钩子 ******************
+// 定时轮询刷新
+let pendingTimer = null;
+let friendTipTimer = null;
 onMounted(() => {
-  // 初次加载数据
   refreshPendingRequests();
+  pendingTimer = setInterval(refreshPendingRequests, 1000);
   checkFriendTipUnread();
-  
-  // 初始化 socket 连接，并加入以用户名为房间（确保后端能够根据房间推送消息给当前用户）
-  const { socket, joinRoom } = useSocket();
-  if (user.value.username) {
-    joinRoom(user.value.username);
-  }
-  
-  // 监听好友请求更新事件（后端推送该事件时刷新好友列表）
-  socket.value.on('pending-requests-updated', () => {
-    console.log('收到 pending-requests-updated 事件');
-    refreshPendingRequests();
-  });
-  
-  // 监听未读消息更新事件，使用后端统一推送的 "unread-updated" 事件
-  socket.value.on('unread-updated', () => {
-    console.log('收到 unread-updated 事件');
-    checkFriendTipUnread();
-  });
-  
-  // 监听全局聊天中新消息推送事件
-  socket.value.on('global-chat-new-message', () => {
-    console.log('收到 global-chat-new-message 事件');
-    if (globalChatDialog.value && messageDialogRef.value?.refresh) {
-      messageDialogRef.value.refresh();
-    }
-  });
-  
+  friendTipTimer = setInterval(checkFriendTipUnread, 1000);
   window.friendMenuRef = friendMenuRef;
   console.log('[Home.vue] onMounted, Drawdistance ref:', Drawdistance);
 });
-
-// ****************** onBeforeUnmount 钩子 ******************
 onBeforeUnmount(() => {
-  // 如果需要解除事件监听，可根据全局 socket 管理策略选择是否解绑
-  /* const { socket } = useSocket();
-  socket.value.off('pending-requests-updated');
-  socket.value.off('unread-updated');
-  socket.value.off('global-chat-new-message'); */
-  
+  if (pendingTimer) clearInterval(pendingTimer);
+  if (globalMsgTimer) clearInterval(globalMsgTimer);
+  if (friendTipTimer) clearInterval(friendTipTimer);
   if (window.friendMenuRef === friendMenuRef) window.friendMenuRef = undefined;
 });
 
-// ****************** 聊天对话框相关函数 ******************
+// 聊天对话框相关
 function openGlobalChatDialog(friend) {
   globalChatFriend.value = friend;
   globalChatDialog.value = true;
   nextTick(() => {
-    // 立即刷新消息对话框
     messageDialogRef.value?.refresh && messageDialogRef.value.refresh();
-    // 刷新好友请求状态
     refreshPendingRequests();
   });
-  // 依靠 socket 推送新消息更新，无需额外的轮询定时器
+  if (globalMsgTimer) clearInterval(globalMsgTimer);
+  globalMsgTimer = setInterval(() => {
+    if (globalChatDialog.value && messageDialogRef.value?.refresh) {
+      messageDialogRef.value.refresh();
+    }
+  }, 1000);
 }
 window.openGlobalChatDialog = openGlobalChatDialog;
 
 function handleChatDialogClose() {
   globalChatDialog.value = false;
-  // 不再需要清除定时器
+  if (globalMsgTimer) {
+    clearInterval(globalMsgTimer);
+    globalMsgTimer = null;
+  }
 }
 
-// ****************** 头像更新及用户信息函数 ******************
+// 头像相关
 const fetchUserDetail = async () => {
   if (!user.value.username) return;
   const res = await axios.post('/api/user-info-batch', {
@@ -214,13 +185,14 @@ const handleDialogClose = () => {
   if (window.setGlobalDialogVisible) window.setGlobalDialogVisible(false);
 };
 
+// 修正：安全调用 window.setGlobalDialogVisible
 function onUserInfoDialogOpen() {
   if (typeof window !== 'undefined' && typeof window.setGlobalDialogVisible === 'function') {
     window.setGlobalDialogVisible(true);
   }
 }
 
-// ****************** 好友请求按钮状态 ******************
+// 好友请求按钮状态
 const isPending = computed(() =>
   selectedUser.value && pendingFriendRequests.value.includes(selectedUser.value.username)
 );
@@ -231,43 +203,40 @@ const isRejected = computed(() =>
 const isLoginPage = computed(() => route.name === 'UserLogin');
 const hideSwitchPanel = computed(() => isLoginPage.value || showUserInfo.value || globalDialogVisible.value);
 
-// ****************** 打开好友列表方法 ******************
-// 修改：打开好友列表时同时通知后端清除“红点提示”
+// 打开好友列表方法，兼容PC和移动端
 const showFriendList = () => {
   if (friendMenuRef.value) {
     friendMenuRef.value.showFriendList = true;
-    // 发送 socket 消息通知后端，标记该用户的好友提示已读
-    const { socket } = useSocket();
-    if (socket.value) {
-      socket.value.emit('clear-friend-tip', { username: user.value.username });
-    }
-    // 同时在前端清除红点状态
-    friendTipHasUnread.value = false;
   }
 };
 
+// 兼容PC和移动端，确保弹出好友列表
 const handleFriendTip = (e) => {
+  console.log('梯形控件响应事件触发:', {
+    friendMenuRef: friendMenuRef.value,
+    showFriendList: friendMenuRef.value && friendMenuRef.value.showFriendList
+  });
   e && e.preventDefault && e.preventDefault();
-  // 发送 socket 消息（或 HTTP 请求）通知后端，标记为已读
-  const { socket } = useSocket();
-  if (socket.value) {
-    socket.value.emit('clear-friend-tip', { username: user.value.username });
-  }
-  friendTipHasUnread.value = false;
   if (friendMenuRef.value) {
     if (typeof friendMenuRef.value.showFriendList === 'function') {
+      console.log('调用 showFriendList() 方法');
       friendMenuRef.value.showFriendList();
     } else {
+      console.log('设置 showFriendList = true');
       friendMenuRef.value.showFriendList = true;
     }
+  } else {
+    console.log('friendMenuRef.value 未定义');
   }
-  };
+};
 
 // 修正：安全判断 window 和 showUserInfo
 function onUserAvatarClick() {
+  // 避免 window 为 undefined 或 __drawdistance_disable_userinfo__ 为 true
   if (typeof window !== 'undefined' && window.__drawdistance_disable_userinfo__) {
     return;
   }
+  // showUserInfo 可能为 ref，也可能为 false，需判断
   if (showUserInfo && typeof showUserInfo === 'object' && 'value' in showUserInfo) {
     showUserInfo.value = true;
   }

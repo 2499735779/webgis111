@@ -7,6 +7,7 @@ import { onMounted, ref, reactive, watch } from 'vue';
 import axios from 'axios';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import Overlay from 'ol/Overlay.js';
+import MousePosition from './control/MousePosition.vue';
 
 // 获取当前登录用户信息
 const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -321,6 +322,8 @@ onMounted(() => {
         </template>
       </div>
     </el-dialog>
+    <!-- 挂载鼠标位置控件 -->
+    <MousePosition />
   </div>
 </template>
 
@@ -424,4 +427,3 @@ html, body, #app {
   pointer-events: auto;
 }
 </style>
-``` 
