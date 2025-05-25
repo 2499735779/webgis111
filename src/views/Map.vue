@@ -206,100 +206,95 @@ const clearNearbyOverlays = () => {
   overlays.length = 0;
 };
 
-const defaultAvatar = '/blank-avatar.png'; // 推荐放在 public 目录下
+const defaultAvatar = '/blank-avatar.png'; // 确保 public 目录下有此文件
 
-const searchNearby = async () => {
-  if (!olmap) return;
-  clearNearbyOverlays();
-  const center = olmap.getView().getCenter();
-  const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
-  const res = await axios.get('/api/nearby-users', {
-    params: { lng: centerLng, lat: centerLat, radius: 3000 }
-  });
-  nearbyUsers.value = res.data || [];
-  nearbyUsers.value.forEach(u => {
-    if (u.lng == null || u.lat == null) return;
-    const el = document.createElement('div');
-    el.className = 'user-marker';
-    // 兜底头像，并防止 img 加载失败影响后续渲染
-    const avatarUrl = u.avatar || defaultAvatar;
-    el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}" onerror="this.src='${defaultAvatar}'"/>`;
+nearbyUsers.value.forEach(u => {
+  if (u.lng == null || u.lat == null) return;
+  const el = document.createElement('div');
+  el.className = 'user-marker';
+  const avatarUrl = u.avatar || defaultAvatar;
+  el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
+  // 防止死循环
+  const img = el.querySelector('img');
+  img.onerror = function() {
+    if (!this._tried) {
+      this._tried = 1;
+      this.src = defaultAvatar;
+    }
+  };
 
-    // 新增：鼠标移入时加光影、显示用户名提示，光标变为手型
-    const img = el.querySelector('img');
-    let tipDiv = null;
-    img.onmouseenter = (e) => {
-      img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
-      img.style.borderColor = '#67c23a';
-      img.style.zIndex = 30000;
-      img.style.cursor = 'pointer';
-      // 显示用户名提示
-      tipDiv = document.createElement('div');
-      tipDiv.className = 'user-marker-tip';
-      tipDiv.innerText = u.username;
-      tipDiv.style.position = 'fixed';
-      tipDiv.style.left = (e.clientX + 16) + 'px';
-      tipDiv.style.top = (e.clientY + 16) + 'px';
-      tipDiv.style.background = '#409eff';
-      tipDiv.style.color = '#fff';
-      tipDiv.style.padding = '4px 12px';
-      tipDiv.style.borderRadius = '6px';
-      tipDiv.style.fontSize = '15px';
-      tipDiv.style.zIndex = 30001;
-      tipDiv.style.pointerEvents = 'none';
-      tipDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
-      document.body.appendChild(tipDiv);
-      // 跟随鼠标
-      img.onmousemove = (ev) => {
-        if (tipDiv) {
-          tipDiv.style.left = (ev.clientX + 16) + 'px';
-          tipDiv.style.top = (ev.clientY + 16) + 'px';
-        }
-      };
-    };
-    img.onmouseleave = () => {
-      img.style.boxShadow = '';
-      img.style.borderColor = '#409eff';
-      img.style.zIndex = '';
-      img.style.cursor = '';
+  // 新增：鼠标移入时加光影、显示用户名提示，光标变为手型
+  img.onmouseenter = (e) => {
+    img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
+    img.style.borderColor = '#67c23a';
+    img.style.zIndex = 30000;
+    img.style.cursor = 'pointer';
+    // 显示用户名提示
+    tipDiv = document.createElement('div');
+    tipDiv.className = 'user-marker-tip';
+    tipDiv.innerText = u.username;
+    tipDiv.style.position = 'fixed';
+    tipDiv.style.left = (e.clientX + 16) + 'px';
+    tipDiv.style.top = (e.clientY + 16) + 'px';
+    tipDiv.style.background = '#409eff';
+    tipDiv.style.color = '#fff';
+    tipDiv.style.padding = '4px 12px';
+    tipDiv.style.borderRadius = '6px';
+    tipDiv.style.fontSize = '15px';
+    tipDiv.style.zIndex = 30001;
+    tipDiv.style.pointerEvents = 'none';
+    tipDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+    document.body.appendChild(tipDiv);
+    // 跟随鼠标
+    img.onmousemove = (ev) => {
       if (tipDiv) {
-        document.body.removeChild(tipDiv);
-        tipDiv = null;
+        tipDiv.style.left = (ev.clientX + 16) + 'px';
+        tipDiv.style.top = (ev.clientY + 16) + 'px';
       }
-      img.onmousemove = null;
     };
+  };
+  img.onmouseleave = () => {
+    img.style.boxShadow = '';
+    img.style.borderColor = '#409eff';
+    img.style.zIndex = '';
+    img.style.cursor = '';
+    if (tipDiv) {
+      document.body.removeChild(tipDiv);
+      tipDiv = null;
+    }
+    img.onmousemove = null;
+  };
 
-    // 关键：阻止事件冒泡和默认行为
-    el.onclick = (e) => {
-      console.log('[Map.vue] user-marker div onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
-      if (window.__drawdistance_disable_userinfo__) {
-        e && e.stopPropagation();
-        e && e.preventDefault();
-        return false;
-      }
-      handleUserMarkerClick(u, e);
-    };
-    // 兼容头像img本身的点击
-    img.onclick = (e) => {
-      console.log('[Map.vue] user-marker img onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
-      if (window.__drawdistance_disable_userinfo__) {
-        e && e.stopPropagation();
-        e && e.preventDefault();
-        return false;
-      }
-      handleUserMarkerClick(u, e);
-    };
+  // 关键：阻止事件冒泡和默认行为
+  el.onclick = (e) => {
+    console.log('[Map.vue] user-marker div onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
+    if (window.__drawdistance_disable_userinfo__) {
+      e && e.stopPropagation();
+      e && e.preventDefault();
+      return false;
+    }
+    handleUserMarkerClick(u, e);
+  };
+  // 兼容头像img本身的点击
+  img.onclick = (e) => {
+    console.log('[Map.vue] user-marker img onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
+    if (window.__drawdistance_disable_userinfo__) {
+      e && e.stopPropagation();
+      e && e.preventDefault();
+      return false;
+    }
+    handleUserMarkerClick(u, e);
+  };
 
-    const overlay = new Overlay({
-      element: el,
-      positioning: 'center-center',
-      stopEvent: false
-    });
-    overlay.setPosition(fromLonLat([u.lng, u.lat], olmap.getView().getProjection()));
-    olmap.addOverlay(overlay);
-    overlays.push(overlay);
+  const overlay = new Overlay({
+    element: el,
+    positioning: 'center-center',
+    stopEvent: false
   });
-};
+  overlay.setPosition(fromLonLat([u.lng, u.lat], olmap.getView().getProjection()));
+  olmap.addOverlay(overlay);
+  overlays.push(overlay);
+});
 
 onMounted(() => {
   console.log('组件挂载，开始初始化地图...');
