@@ -3,7 +3,7 @@ import Map from 'ol/Map.js';
 import View from 'ol/View.js';
 import TileLayer from 'ol/layer/Tile.js';
 import XYZ from 'ol/source/XYZ.js';
-import { onMounted, ref, reactive, watch } from 'vue';
+import { onMounted, ref, reactive, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import Overlay from 'ol/Overlay.js';
@@ -17,6 +17,9 @@ const lat = ref('');
 const locating = ref(false);
 const errorMsg = ref('');
 let olmap = null;
+
+let userPositionOverlay = null; // 实时位置覆盖物
+let watchId = null;             // 实时监听ID
 
 const showNearby = ref(false);
 const nearbyUsers = ref([]);
@@ -81,6 +84,58 @@ const handleUserMarkerClick = async (u, e) => {
   isFriend.value = friends.value.includes(u.username);
 };
 
+// 实时监听用户位置，仅前端展示，不上传后端
+const startWatchUserPosition = () => {
+  if (!navigator.geolocation) {
+    errorMsg.value = '当前浏览器不支持地理位置获取';
+    return;
+  }
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      // 只用于前端显示
+      const lngVal = pos.coords.longitude;
+      const latVal = pos.coords.latitude;
+      // 地图和覆盖物准备好后，显示用户位置
+      if (olmap) {
+        const coord = fromLonLat([lngVal, latVal], olmap.getView().getProjection());
+        if (!userPositionOverlay) {
+          const el = document.createElement('div');
+          el.className = 'user-location-marker';
+          el.innerHTML = `<span style="display:inline-block;width:18px;height:18px;background:#67c23a;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.18);"></span>`;
+          userPositionOverlay = new Overlay({
+            element: el,
+            positioning: 'center-center',
+            stopEvent: false
+          });
+          olmap.addOverlay(userPositionOverlay);
+        }
+        userPositionOverlay.setPosition(coord);
+      }
+    },
+    err => {
+      errorMsg.value = '定位失败: ' + err.message;
+    },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+  );
+};
+
+// 页面卸载时清理监听
+onBeforeUnmount(() => {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  if (olmap && userPositionOverlay) {
+    olmap.removeOverlay(userPositionOverlay);
+    userPositionOverlay = null;
+  }
+});
+
+// 用户点击按钮后定位并上传当前位置（只上传一次，不实时上传）
 const getCurrentLocation = () => {
   locating.value = true;
   errorMsg.value = '';
@@ -110,12 +165,12 @@ const getCurrentLocation = () => {
   );
 };
 
+// 上传位置只在用户点击按钮时才上传
 const uploadLocation = async () => {
   if (!lng.value || !lat.value) {
     errorMsg.value = '请先定位';
     return;
   }
-  // 上传时带上用户名和头像
   await axios.post('/api/user-location', {
     username: user.value.username,
     avatar: user.value.avatar,
@@ -272,6 +327,8 @@ onMounted(() => {
     window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
   }, 0);
   mousePositionReady.value = true; // 地图创建后标记ready
+
+  startWatchUserPosition(); // 页面加载即请求权限并实时监听，仅前端显示
 });
 </script>
 
@@ -428,5 +485,11 @@ html, body, #app {
   display: flex;
   justify-content: center;
   pointer-events: auto;
+}
+.user-location-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 21000;
+  pointer-events: none;
 }
 </style>
