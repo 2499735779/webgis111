@@ -78,16 +78,17 @@ let pendingTimer = null;
 let friendTipTimer = null;
 onMounted(() => {
   refreshPendingRequests();
-  pendingTimer = setInterval(refreshPendingRequests, 1000);
+  // 删除定时轮询
+  // pendingTimer = setInterval(refreshPendingRequests, 1000);
   checkFriendTipUnread();
-  friendTipTimer = setInterval(checkFriendTipUnread, 1000);
+  // friendTipTimer = setInterval(checkFriendTipUnread, 1000);
   window.friendMenuRef = friendMenuRef;
   console.log('[Home.vue] onMounted, Drawdistance ref:', Drawdistance);
 });
 onBeforeUnmount(() => {
-  if (pendingTimer) clearInterval(pendingTimer);
+  // if (pendingTimer) clearInterval(pendingTimer);
+  // if (friendTipTimer) clearInterval(friendTipTimer);
   if (globalMsgTimer) clearInterval(globalMsgTimer);
-  if (friendTipTimer) clearInterval(friendTipTimer);
   if (window.friendMenuRef === friendMenuRef) window.friendMenuRef = undefined;
 });
 
