@@ -155,7 +155,7 @@ const getCurrentLocation = () => {
     return;
   }
   navigator.geolocation.getCurrentPosition(
-    pos => {
+    async pos => {
       lng.value = pos.coords.longitude;
       lat.value = pos.coords.latitude;
       locating.value = false;
@@ -166,6 +166,17 @@ const getCurrentLocation = () => {
           : [lng.value, lat.value];
         olmap.getView().setCenter(coord);
         olmap.getView().setZoom(17);
+      }
+      // 定位后自动上传坐标
+      if (lng.value && lat.value) {
+        await axios.post('/api/user-location', {
+          username: user.value.username,
+          avatar: user.value.avatar,
+          lng: Number(lng.value),
+          lat: Number(lat.value)
+        });
+        errorMsg.value = '上传成功';
+        setTimeout(() => { errorMsg.value = ''; }, 1500);
       }
     },
     err => {
@@ -381,6 +392,7 @@ onMounted(() => {
     });
     controlsToRemove.forEach(ctrl => olmap.removeControl(ctrl));
     emit('created', window.map);
+    // 这里通过事件通知 PublicMap 组件加载天地图底图
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
     }, 0);
@@ -405,7 +417,7 @@ onMounted(() => {
         const map = new Map({
           target: 'mapDom',
           view: new View(viewOpts),
-          layers: []
+          layers: [] // 这里不初始化任何底图，由 PublicMap 控制
         });
 
         window.map = map;
@@ -429,6 +441,7 @@ onMounted(() => {
         controlsToRemove.forEach(ctrl => map.removeControl(ctrl));
 
         window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
+        // 通知 PublicMap 组件加载天地图底图
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
         }, 0);
@@ -447,7 +460,7 @@ onMounted(() => {
         const map = new Map({
           target: 'mapDom',
           view: new View(viewOpts),
-          layers: []
+          layers: [] // 这里不初始化任何底图，由 PublicMap 控制
         });
 
         window.map = map;
@@ -490,7 +503,7 @@ onMounted(() => {
     const map = new Map({
       target: 'mapDom',
       view: new View(viewOpts),
-      layers: []
+      layers: [] // 这里不初始化任何底图，由 PublicMap 控制
     });
 
     window.map = map;
@@ -527,25 +540,31 @@ onMounted(() => {
 <template>
   <div style="width:100%;height:100%;position:relative;">
     <div id="mapDom" class="map"></div>
-    <!-- 左上角按钮容器 -->
+    <!-- 右侧定位按钮（已融合上传功能） -->
     <div class="usermap-btns">
-      <button
-        class="locate-btn"
-        :disabled="locating"
-        @click="getCurrentLocation"
-        title="定位到当前位置"
-      >
-        <span v-if="!locating" class="icon">&#128269;</span>
-        <span v-else class="icon">...</span>
-      </button>
-      <button
-        class="upload-btn"
-        :disabled="!lng || !lat"
-        @click="uploadLocation"
-        title="上传当前位置"
-      >
-        <span class="icon">&#8679;</span> 上传坐标
-      </button>
+      <div class="locate-btn-wrapper" title="定位到当前坐标并上传">
+        <svg
+          class="locate-svg-btn"
+          @click="!locating && getCurrentLocation()"
+          :style="{ pointerEvents: locating ? 'none' : 'auto', opacity: locating ? 0.5 : 1 }"
+          width="56"
+          height="56"
+          viewBox="0 0 4855.79 4855.79"
+          style="cursor:pointer;"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <g>
+            <circle class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-miterlimit:22.9256;fill:none;" cx="2427.9" cy="2427.89" r="1495.78"/>
+            <path class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-miterlimit:22.9256;fill:none;" d="M3092.69 2427.89c0,-367.15 -297.64,-664.79 -664.79,-664.79 -367.15,0 -664.79,297.64 -664.79,664.79 0,367.15 297.64,664.79 664.79,664.79 367.15,0 664.79,-297.64 664.79,-664.79z"/>
+            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="2427.9" y1="3923.66" x2="2427.9" y2="4546.91"/>
+            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="2427.9" y1="308.88" x2="2427.9" y2="932.11"/>
+            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="932.12" y1="2427.89" x2="308.88" y2="2427.89"/>
+            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="4546.91" y1="2427.89" x2="3923.67" y2="2427.89"/>
+            <circle class="fil0" style="stroke:#0573E1;stroke-width:617.74;stroke-miterlimit:22.9256;fill:none;" cx="2427.9" cy="2427.89" r="664.79"/>
+          </g>
+        </svg>
+      </div>
+      <!-- 删除上传按钮，只保留定位按钮 -->
       <span v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
     </div>
     <!-- 底部搜索搭子按钮 -->
@@ -585,44 +604,51 @@ onMounted(() => {
 .map {
   width: 100%;
   height: 100%;
-  position: relative; /* 确保 overlay 能正确定位 */
-  overflow: visible !important; /* 防止 marker 被裁剪 */
+  position: relative;
+  overflow: visible !important;
 }
 
 .usermap-btns {
   position: fixed;
-  left: 40px;
-  top: 50px;
+  right: 40px;
+  top: calc(50% + 200px); /* 向下移动100像素 */
   z-index: 10010;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: flex-end;
+  gap: 0;
+  transform: translateY(-50%);
+  background: transparent !important; /* 保证背景透明 */
 }
-.locate-btn,
-.upload-btn {
+.publicmap-placeholder {
+  /* 用于占位，与publicmap控件高度一致 */
+  width: 310px;
+  height: 140px;
+  margin-bottom: 20px; /* 定位控件与publicmap控件间距20px */
+  pointer-events: none;
+}
+.locate-btn-wrapper {
   pointer-events: auto;
-}
-.locate-btn {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: #409eff;
-  color: #fff;
-  border: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-  font-size: 28px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
   margin-bottom: 10px;
+  background: transparent !important; /* 保证背景透明 */
 }
-.locate-btn:disabled {
-  background: #b3d8ff;
-  cursor: not-allowed;
+.locate-svg-btn {
+  pointer-events: auto;
+  background: transparent !important;
+  border: none;
+  padding: 0;
+  display: block;
+  transition: box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  border-radius: 50%;
+}
+.locate-btn-wrapper:hover .locate-svg-btn {
+  box-shadow: 0 4px 16px rgba(64,158,255,0.18);
+  background: #f0f7ff;
 }
 .upload-btn {
   height: 44px;

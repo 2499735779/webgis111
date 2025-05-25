@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import TileLayer from 'ol/layer/Tile.js'
 import XYZ from 'ol/source/XYZ.js'
 import OSM from 'ol/source/OSM.js'
@@ -43,19 +43,40 @@ const createLyrGd = () => {
 
 const createLyrTian = () => {
   const key = '569737ea36171685d686b54ce079a49d';
-  const url = `http://t{0-7}.tianditu.gov.cn/vec_c/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=c&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${key}`;
-  debugTileUrl(url);
-  return new TileLayer({
-    properties: {
-      name: 'tian',
-      title: '天地图',
-    },
-    visible: false,
-    source: new XYZ({
-      projection: 'EPSG:4326',
-      url,
+  // 矢量底图
+  const vecUrl = `http://t{0-7}.tianditu.gov.cn/vec_c/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=c&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${key}`;
+  // 文字注记图层
+  const cvaUrl = `http://t{0-7}.tianditu.gov.cn/cva_c/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=c&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${key}`;
+  debugTileUrl(vecUrl);
+  debugTileUrl(cvaUrl);
+
+  // 返回一个包含底图和注记的图层组
+  return [
+    new TileLayer({
+      properties: {
+        name: 'tian',
+        title: '天地图',
+        isTianBase: true
+      },
+      visible: false,
+      source: new XYZ({
+        projection: 'EPSG:4326',
+        url: vecUrl,
+      })
+    }),
+    new TileLayer({
+      properties: {
+        name: 'tian-label',
+        title: '天地图文字注记',
+        isTianLabel: true
+      },
+      visible: false,
+      source: new XYZ({
+        projection: 'EPSG:4326',
+        url: cvaUrl,
+      })
     })
-  });
+  ];
 };
 
 const createLyrBd = () => {
@@ -102,7 +123,7 @@ const createLyrOSM = () => {
   return new TileLayer({
     properties: {
       name: 'osm',
-      title: 'OpenStreetMap地图',
+      title: 'OpenStreetMap',
     },
     visible: false,
     source: new OSM()
@@ -143,26 +164,31 @@ const createLyrArc = () => {
 };
 
 let olmap = null;
-let layers = [];
+const layers = ref([]); // 改为响应式
 const checks = ref(''); // 当前选择图层
 
 const initLayers = () => {
   olmap = window.map;
   if (!olmap) return;
-  
+
   // 只添加一次各个图层，避免重复添加
   const existNames = new Set(olmap.getLayers().getArray().map(l => l.get('name')));
   if (!existNames.has('gaode')) olmap.addLayer(createLyrGd());
-  if (!existNames.has('tian')) olmap.addLayer(createLyrTian());
+  // 天地图底图和注记分开添加
+  if (!existNames.has('tian')) {
+    const tianLayers = createLyrTian();
+    tianLayers.forEach(layer => olmap.addLayer(layer));
+  }
   if (!existNames.has('baidu')) olmap.addLayer(createLyrBd());
   if (!existNames.has('osm')) olmap.addLayer(createLyrOSM());
   if (!existNames.has('bing')) olmap.addLayer(createLyrBing());
   if (!existNames.has('arc')) olmap.addLayer(createLyrArc());
-  
-  // 筛选唯一的图层
-  layers = olmap.getLayers().getArray()
+
+  // 筛选唯一的图层（只显示底图，不显示注记）
+  const arr = olmap.getLayers().getArray()
     .filter((layer, idx, arr) =>
       layer.get('title') &&
+      !layer.get('isTianLabel') && // 不把注记图层作为单独可选项
       arr.findIndex(l => l.get('name') === layer.get('name')) === idx
     )
     .map(layer => {
@@ -173,16 +199,28 @@ const initLayers = () => {
         layer
       };
     });
-    
+  layers.value = arr; // 赋值给 ref
   onCheckChange();
 };
 
 const onCheckChange = () => {
   if (!olmap) return;
-  layers.forEach(layer => {
+  layers.value.forEach(layer => {
     layer.layer.setVisible(layer.name === checks.value);
+    // 天地图底图时，自动显示注记图层
+    if (layer.name === 'tian') {
+      const labelLayer = olmap.getLayers().getArray().find(l => l.get('isTianLabel'));
+      if (labelLayer) labelLayer.setVisible(layer.layer.getVisible());
+    } else {
+      const labelLayer = olmap.getLayers().getArray().find(l => l.get('isTianLabel'));
+      if (labelLayer) labelLayer.setVisible(false);
+    }
   });
 };
+
+// 计算左右两列的底图选项
+const leftLayers = computed(() => layers.value.slice(0, 3))
+const rightLayers = computed(() => layers.value.slice(3, 6))
 
 onMounted(() => {
   // 初始化地图图层
@@ -197,9 +235,9 @@ onMounted(() => {
   }
   
   window.addEventListener('refresh-basemap', e => {
-    if (!layers.length) return;
+    if (!layers.value.length) return;
     const key = e.detail || 'gaode';
-    if (layers.some(l => l.name === key)) {
+    if (layers.value.some(l => l.name === key)) {
       checks.value = key;
       onCheckChange();
     }
@@ -251,30 +289,84 @@ onMounted(() => {
 
 <template>
   <div class="control publicmap-draggable">
+    <!-- 删除调试信息 -->
     <el-radio-group v-model="checks" @change="onCheckChange" size="large">
-      <el-radio v-for="layer in layers" :key="layer.name" :value="layer.name">
-        {{ layer.title }}
-      </el-radio>
+      <div class="basemap-columns">
+        <div class="basemap-column">
+          <el-radio
+            v-for="layer in leftLayers"
+            :key="layer.name"
+            :value="layer.name"
+            class="basemap-radio"
+          >
+            {{ layer.title }}
+          </el-radio>
+        </div>
+        <div class="basemap-column">
+          <el-radio
+            v-for="layer in rightLayers"
+            :key="layer.name"
+            :value="layer.name"
+            class="basemap-radio"
+          >
+            {{ layer.title }}
+          </el-radio>
+        </div>
+      </div>
     </el-radio-group>
   </div>
 </template>
 
 <style scoped>
 .control {
-  width: 350px;
-  height: 180px;
-  background: white;
-  padding: 20px 16px;
+  width: 310px;
+  height: 140px;
+  background: rgba(255,255,255,0.6); /* 半透明背景 */
+  padding: 16px 16px;
   border-radius: 5px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   position: fixed;
-  right: 40px;
-  top: 50%;
+  right: 40px; /* 距离页面右侧40像素 */
   left: auto;
+  top: 50%;
   transform: translateY(-50%);
   cursor: move;
   z-index: 2002;
   user-select: none;
   pointer-events: auto;
+}
+
+.el-radio-group {
+  width: 100%;
+  height: 100%;
+}
+
+.basemap-columns {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: stretch;
+  height: 100%;
+  width: 100%;
+  gap: 0; /* 去除两列间隙 */
+}
+
+.basemap-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex: 1;
+  height: 100%;
+  gap: 0; /* 去除每列内部间隙 */
+}
+
+.basemap-radio {
+  margin: 0;
+  width: 100%;
+  /* 让每个选项高度均分，且左右对齐 */
+  display: flex;
+  align-items: center;
+  padding: 0;
 }
 </style>

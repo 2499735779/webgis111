@@ -29,4 +29,10 @@ const createZoom = map =>
 </template>
 
 <style>
+/* 调整缩放控件位置，避免被header遮挡 */
+.ol-zoom,
+.ol-zoomslider,
+.ol-zoom-extent {
+  top: 56px !important; /* 原来是8px，往下移，确保不被header(36px)遮挡 */
+}
 </style>

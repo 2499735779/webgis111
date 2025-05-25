@@ -324,18 +324,18 @@ onBeforeUnmount(() => {
 .distance-switch-panel {
   position: fixed;
   right: 40px;
-  bottom: 110px; /* 向上微调，原来80px */
+  bottom: 110px;
   z-index: 1202;
   background: rgba(255,255,255,0.95);
   border-radius: 7px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  padding: 4px 10px; /* 缩小内边距 */
+  padding: 4px 8px; /* 缩小内边距 */
   margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 10px; /* 缩小间距 */
+  gap: 8px; /* 缩小间距 */
   pointer-events: auto;
-  min-width: 120px;
+  min-width: 90px;  /* 缩小最小宽度 */
   min-height: 32px;
 }
 .distance-label {
