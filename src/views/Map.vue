@@ -206,6 +206,8 @@ const clearNearbyOverlays = () => {
   overlays.length = 0;
 };
 
+const defaultAvatar = '/blank-avatar.png'; // 推荐放在 public 目录下
+
 const searchNearby = async () => {
   if (!olmap) return;
   clearNearbyOverlays();
@@ -216,10 +218,12 @@ const searchNearby = async () => {
   });
   nearbyUsers.value = res.data || [];
   nearbyUsers.value.forEach(u => {
-    if (!u.lng || !u.lat) return;
+    if (u.lng == null || u.lat == null) return;
     const el = document.createElement('div');
     el.className = 'user-marker';
-    el.innerHTML = `<img src="${u.avatar || 'https://cdn.jsdelivr.net/gh/xiangyuecn/avatardata@main/blank-avatar.png'}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
+    // 兜底头像，并防止 img 加载失败影响后续渲染
+    const avatarUrl = u.avatar || defaultAvatar;
+    el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}" onerror="this.src='${defaultAvatar}'"/>`;
 
     // 新增：鼠标移入时加光影、显示用户名提示，光标变为手型
     const img = el.querySelector('img');
