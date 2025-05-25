@@ -43,7 +43,7 @@ function setupOverviewMap() {
   const baseLayer = mapInstance.getLayers().item(0)
   control = new OverviewMap({
     collapsed: false,
-    className: 'overviewMapPos',
+    // 不要自定义 className，使用 OpenLayers 默认
     layers: [new TileLayer({ source: baseLayer.getSource() })]
   })
   mapInstance.addControl(control)
@@ -61,13 +61,12 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-.overviewMapPos {
-  position: fixed !important;
-  left: 40px !important;
-  bottom: 60px !important;
+/* 只做微调，不要用 position: fixed */
+.ol-overviewmap {
   z-index: 3000 !important;
-  background: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.95);
   border-radius: 4px;
+  margin: 0 20px 70px 0; /* 右下角微调，略高于比例尺 */
   pointer-events: none;
 }
 </style>
