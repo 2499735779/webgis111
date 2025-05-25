@@ -1,3 +1,7 @@
+<template>
+  <!-- 此组件不渲染任何内容，控件由 OpenLayers 注入 -->
+</template>
+
 <script setup>
 import MousePosition from 'ol/control/MousePosition.js'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
@@ -92,10 +96,6 @@ onBeforeUnmount(() => {
   }
 })
 </script>
-
-<template>
-  <!-- 此组件不渲染任何内容，控件由 OpenLayers 注入 -->
-</template>
 
 <style>
 .mousPos {
