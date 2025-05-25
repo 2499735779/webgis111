@@ -74,12 +74,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
+.mousPos,
+.mousPos * {
+  color: #222 !important;
+  opacity: 1 !important;
+}
 .mousPos {
-  /* 只设置容器颜色，内部文本强制深色 */
   position: fixed;
   right: 20px;
   bottom: 20px;
-  color: #222 !important;
   z-index: 3000;
   pointer-events: none;
   background: rgba(255,255,255,0.8);
@@ -87,8 +90,5 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   font-size: 14px;
   min-width: 80px;
-}
-.mousPos * {
-  color: #222 !important;
 }
 </style>
