@@ -213,10 +213,25 @@ let pendingUsers = [];         // 待渲染的用户
 let renderTimer = null;
 
 const renderUserMarkers = (users) => {
+  if (!olmap) {
+    console.warn('olmap 未初始化，无法渲染用户 marker');
+    return;
+  }
   users.forEach(u => {
     if (u.lng == null || u.lat == null) return;
+    const lng = Number(u.lng);
+    const lat = Number(u.lat);
+    if (isNaN(lng) || isNaN(lat)) {
+      console.warn('用户坐标不是数字:', u);
+      return;
+    }
     const el = document.createElement('div');
     el.className = 'user-marker';
+    // 关键：必须将 overlay 的 stopEvent 设为 true
+    // 否则 OpenLayers 默认会阻止 overlay 的 pointer 事件，导致 marker 不显示或无法交互
+    el.__ol_position = fromLonLat([lng, lat], olmap.getView().getProjection());
+    el.dataset.olPosition = JSON.stringify(el.__ol_position);
+
     const avatarUrl = u.avatar || defaultAvatar;
     el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
     const img = el.querySelector('img');
@@ -266,7 +281,6 @@ const renderUserMarkers = (users) => {
       img.onmousemove = null;
     };
     el.onclick = (e) => {
-      console.log('[Map.vue] user-marker div onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
       if (window.__drawdistance_disable_userinfo__) {
         e && e.stopPropagation();
         e && e.preventDefault();
@@ -275,7 +289,6 @@ const renderUserMarkers = (users) => {
       handleUserMarkerClick(u, e);
     };
     img.onclick = (e) => {
-      console.log('[Map.vue] user-marker img onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
       if (window.__drawdistance_disable_userinfo__) {
         e && e.stopPropagation();
         e && e.preventDefault();
@@ -283,12 +296,14 @@ const renderUserMarkers = (users) => {
       }
       handleUserMarkerClick(u, e);
     };
+    const coord3857 = fromLonLat([lng, lat], olmap.getView().getProjection());
+    // 关键：stopEvent 必须为 true，overlay 才能正常显示和响应事件
     const overlay = new Overlay({
       element: el,
       positioning: 'center-center',
-      stopEvent: false
+      stopEvent: true // 这里必须为 true
     });
-    overlay.setPosition(fromLonLat([u.lng, u.lat], olmap.getView().getProjection()));
+    overlay.setPosition(coord3857);
     olmap.addOverlay(overlay);
     overlays.push(overlay);
   });
@@ -305,6 +320,13 @@ const searchNearby = async () => {
       params: { lng: centerLng, lat: centerLat, radius: 3000 }
     });
     nearbyUsers.value = res.data || [];
+    // 自动定位到第一个用户
+    if (nearbyUsers.value.length > 0) {
+      const first = nearbyUsers.value[0];
+      const coord = fromLonLat([Number(first.lng), Number(first.lat)], olmap.getView().getProjection());
+      olmap.getView().setCenter(coord);
+      olmap.getView().setZoom(18);
+    }
     // 分批渲染
     renderedUsers.value = [];
     pendingUsers = [...nearbyUsers.value];
@@ -353,6 +375,8 @@ onMounted(() => {
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
     }, 0);
+    window.nearbyUsers = nearbyUsers;
+    window.olmap = olmap;
     return;
   }
 
@@ -399,6 +423,8 @@ onMounted(() => {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
         }, 0);
+        window.nearbyUsers = nearbyUsers;
+        window.olmap = olmap;
         startWatchUserPosition();
       },
       err => {
@@ -439,6 +465,8 @@ onMounted(() => {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
         }, 0);
+        window.nearbyUsers = nearbyUsers;
+        window.olmap = olmap;
         startWatchUserPosition();
       }
     );
@@ -480,6 +508,8 @@ onMounted(() => {
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
     }, 0);
+    window.nearbyUsers = nearbyUsers;
+    window.olmap = olmap;
     startWatchUserPosition();
   }
 });
@@ -546,6 +576,8 @@ onMounted(() => {
 .map {
   width: 100%;
   height: 100%;
+  position: relative; /* 确保 overlay 能正确定位 */
+  overflow: visible !important; /* 防止 marker 被裁剪 */
 }
 
 .usermap-btns {
@@ -628,7 +660,7 @@ html, body, #app {
 .user-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 20000;
+  z-index: 99999 !important; /* 提高层级，防止被地图瓦片遮挡 */
   pointer-events: auto;
 }
 .search-nearby-bar {
