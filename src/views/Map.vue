@@ -244,10 +244,13 @@ const renderUserMarkers = (users) => {
     }
     const el = document.createElement('div');
     el.className = 'user-marker';
-    // 关键：确保坐标转换为 EPSG:3857
-    const coord3857 = fromLonLat([lng, lat], 'EPSG:3857');
-    el.__ol_position = coord3857;
-    el.dataset.olPosition = JSON.stringify(coord3857);
+    // 关键：确保坐标转换为地图当前投影
+    const proj = olmap.getView().getProjection();
+    const coord = proj.getCode() === 'EPSG:3857'
+      ? fromLonLat([lng, lat], proj)
+      : [lng, lat];
+    el.__ol_position = coord;
+    el.dataset.olPosition = JSON.stringify(coord);
 
     const avatarUrl = u.avatar || defaultAvatar;
     el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
@@ -313,14 +316,14 @@ const renderUserMarkers = (users) => {
       }
       handleUserMarkerClick(u, e);
     };
-    // 关键：overlay 的 position 必须是 EPSG:3857 坐标
+    // 关键：overlay 的 position 必须是地图当前投影坐标
     const overlay = new Overlay({
       element: el,
       positioning: 'center-center',
       stopEvent: true,
       insertFirst: false
     });
-    overlay.setPosition(coord3857);
+    overlay.setPosition(coord);
     olmap.addOverlay(overlay);
     overlays.push(overlay);
   });
