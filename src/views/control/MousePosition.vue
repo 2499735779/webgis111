@@ -39,7 +39,6 @@ function setupMousePosition() {
   if (!mapInstance) {
     return
   }
-  // 避免重复添加控件
   if (control) {
     mapInstance.removeControl(control)
     control = null
@@ -55,8 +54,22 @@ function setupMousePosition() {
       const lngDir = lng >= 0 ? '东经' : '西经'
       return `${latDir}：${Math.abs(lat).toFixed(5)}  ${lngDir}：${Math.abs(lng).toFixed(5)}`
     },
-    // 关键：指定 target 为 null，确保控件被自动插入到地图容器
-    target: null
+    target: null,
+    // 关键：自定义render，强制颜色
+    render: function(mapEvent) {
+      const element = this.element;
+      if (element) {
+        element.style.color = '#222';
+        element.style.opacity = '1';
+        // 递归设置所有子元素
+        Array.from(element.querySelectorAll('*')).forEach(el => {
+          el.style.color = '#222';
+          el.style.opacity = '1';
+        });
+      }
+      // 调用原始render逻辑
+      return MousePosition.prototype.render.call(this, mapEvent);
+    }
   })
   mapInstance.addControl(control)
   // 初始显示状态
