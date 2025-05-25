@@ -7,16 +7,18 @@ const mousePosRef = ref(null)
 
 const createMousePosition = map =>
 {
-  // 创建鼠标位置控件，显示经纬度（小数点后5位，自动判别方向）
+  // 创建鼠标位置控件，显示经纬度（小数点后5位，自动判别方向，且为EPSG:4326经纬度）
   const control = new MousePosition({
     className: 'mousPos',
     projection: 'EPSG:4326',
     coordinateFormat: coord => {
       if (!coord) return ''
-      const lng = coord[0]
-      const lat = coord[1]
+      // EPSG:4326 格式为 [经度, 纬度]
+      const lng = Number(coord[0])
+      const lat = Number(coord[1])
       const latDir = lat >= 0 ? '北纬' : '南纬'
       const lngDir = lng >= 0 ? '东经' : '西经'
+      // 保证只显示5位小数
       return `${latDir}：${Math.abs(lat).toFixed(5)}  ${lngDir}：${Math.abs(lng).toFixed(5)}`
     }
   })
