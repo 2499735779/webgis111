@@ -78,7 +78,7 @@ onBeforeUnmount(() => {
   position: fixed;
   right: 20px;
   bottom: 20px;
-  color: red;
+  color: rgb(0, 0, 0);
   z-index: 3000;
   pointer-events: none;
   background: rgba(255,255,255,0.8);
