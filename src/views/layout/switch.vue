@@ -8,24 +8,9 @@ const overviewControl = ref(true)
 const mousePositionControl = ref(true)
 
 const updateControls = () => {
-  const map = window.map
-  if (!map) return
-
-  map.getControls().clear()
-
-  if (scaleControl.value) map.addControl(new ScaleLine())
-  if (overviewControl.value) {
-    const baseLayer = map.getLayers().item(0)
-    map.addControl(
-      new OverviewMap({
-        collapsed: false,
-        layers: [baseLayer],
-      })
-    )
-  }
-  // 不再在这里处理 MousePosition 控件的 add/remove
-  // MousePosition 控件的挂载和显示/隐藏由 MousePosition.vue 组件内部根据 mousePositionControl 控制
-  // 这里只负责开关状态
+  // 不再清空控件，也不再直接 add/remove 控件
+  // 控件的 add/remove 由各自组件内部管理
+  // 这里只负责通知 mitt 事件
 }
 
 // 监听 mousePositionControl 变化，通知 MousePosition.vue 控制显示/隐藏

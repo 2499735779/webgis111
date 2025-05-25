@@ -66,6 +66,5 @@ onBeforeUnmount(() => {
   margin: 0 20px 20px 0; /* 右下角微调 */
   font-size: 14px;
   min-width: 80px;
-  pointer-events: none;
 }
 </style>

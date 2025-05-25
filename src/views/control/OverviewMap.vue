@@ -61,12 +61,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-/* 只做微调，不要用 position: fixed */
 .ol-overviewmap {
   z-index: 3000 !important;
   background: rgba(255,255,255,0.95);
   border-radius: 4px;
-  margin: 0 20px 70px 0; /* 右下角微调，略高于比例尺 */
-  pointer-events: none;
+  margin: 0 20px 70px 0;
 }
 </style>
