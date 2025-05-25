@@ -217,9 +217,12 @@ const renderUserMarkers = (users) => {
     console.warn('olmap 未初始化，无法渲染用户 marker');
     return;
   }
-  // 1. 确保 overlays 容器已清空，避免重复渲染
-  // 2. 确保 overlay 被添加到 olmap 的 overlays_ 集合
-  // 3. 强制触发地图重绘
+  // 先清理所有 overlays，避免重复渲染和 DOM 残留
+  overlays.forEach(ov => {
+    if (olmap) olmap.removeOverlay(ov);
+  });
+  overlays.length = 0;
+
   users.forEach(u => {
     if (u.lng == null || u.lat == null) return;
     const lng = Number(u.lng);
@@ -230,8 +233,10 @@ const renderUserMarkers = (users) => {
     }
     const el = document.createElement('div');
     el.className = 'user-marker';
-    el.__ol_position = fromLonLat([lng, lat], olmap.getView().getProjection());
-    el.dataset.olPosition = JSON.stringify(el.__ol_position);
+    // 关键：确保坐标转换为 EPSG:3857
+    const coord3857 = fromLonLat([lng, lat], 'EPSG:3857');
+    el.__ol_position = coord3857;
+    el.dataset.olPosition = JSON.stringify(coord3857);
 
     const avatarUrl = u.avatar || defaultAvatar;
     el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
@@ -297,21 +302,19 @@ const renderUserMarkers = (users) => {
       }
       handleUserMarkerClick(u, e);
     };
-    const coord3857 = fromLonLat([lng, lat], olmap.getView().getProjection());
-    // 关键：stopEvent 必须为 true
+    // 关键：overlay 的 position 必须是 EPSG:3857 坐标
     const overlay = new Overlay({
       element: el,
       positioning: 'center-center',
-      stopEvent: true
+      stopEvent: true,
+      insertFirst: false
     });
     overlay.setPosition(coord3857);
     olmap.addOverlay(overlay);
     overlays.push(overlay);
   });
 
-  // 强制触发地图重绘，确保 overlay 显示
   if (olmap.renderSync) olmap.renderSync();
-  // 调试输出 overlays 数量
   console.log('当前 overlays 数量:', overlays.length, overlays);
 };
 
