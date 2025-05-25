@@ -217,6 +217,9 @@ const renderUserMarkers = (users) => {
     console.warn('olmap 未初始化，无法渲染用户 marker');
     return;
   }
+  // 1. 确保 overlays 容器已清空，避免重复渲染
+  // 2. 确保 overlay 被添加到 olmap 的 overlays_ 集合
+  // 3. 强制触发地图重绘
   users.forEach(u => {
     if (u.lng == null || u.lat == null) return;
     const lng = Number(u.lng);
@@ -227,8 +230,6 @@ const renderUserMarkers = (users) => {
     }
     const el = document.createElement('div');
     el.className = 'user-marker';
-    // 关键：必须将 overlay 的 stopEvent 设为 true
-    // 否则 OpenLayers 默认会阻止 overlay 的 pointer 事件，导致 marker 不显示或无法交互
     el.__ol_position = fromLonLat([lng, lat], olmap.getView().getProjection());
     el.dataset.olPosition = JSON.stringify(el.__ol_position);
 
@@ -297,16 +298,21 @@ const renderUserMarkers = (users) => {
       handleUserMarkerClick(u, e);
     };
     const coord3857 = fromLonLat([lng, lat], olmap.getView().getProjection());
-    // 关键：stopEvent 必须为 true，overlay 才能正常显示和响应事件
+    // 关键：stopEvent 必须为 true
     const overlay = new Overlay({
       element: el,
       positioning: 'center-center',
-      stopEvent: true // 这里必须为 true
+      stopEvent: true
     });
     overlay.setPosition(coord3857);
     olmap.addOverlay(overlay);
     overlays.push(overlay);
   });
+
+  // 强制触发地图重绘，确保 overlay 显示
+  if (olmap.renderSync) olmap.renderSync();
+  // 调试输出 overlays 数量
+  console.log('当前 overlays 数量:', overlays.length, overlays);
 };
 
 // 搜索附近用户（3km内，带头像）
