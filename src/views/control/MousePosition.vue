@@ -36,13 +36,11 @@ onMounted(() => {
 })
 
 function setupMousePosition() {
-  if (!mapInstance) {
-    return
-  }
-  if (control) {
-    mapInstance.removeControl(control)
-    control = null
-  }
+  if (!mapInstance) return
+  // 移除所有已存在的 MousePosition 控件，避免重复
+  mapInstance.getControls().getArray().forEach(ctrl => {
+    if (ctrl instanceof MousePosition) mapInstance.removeControl(ctrl)
+  })
   control = new MousePosition({
     className: 'mousPos',
     projection: 'EPSG:4326',
