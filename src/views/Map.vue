@@ -208,6 +208,92 @@ const clearNearbyOverlays = () => {
 
 const defaultAvatar = '/blank-avatar.png'; // 确保 public 目录下有此文件
 
+const renderedUsers = ref([]); // 当前已渲染的用户
+let pendingUsers = [];         // 待渲染的用户
+let renderTimer = null;
+
+const renderUserMarkers = (users) => {
+  users.forEach(u => {
+    if (u.lng == null || u.lat == null) return;
+    const el = document.createElement('div');
+    el.className = 'user-marker';
+    const avatarUrl = u.avatar || defaultAvatar;
+    el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
+    const img = el.querySelector('img');
+    img.onerror = function() {
+      if (!this._tried) {
+        this._tried = 1;
+        this.src = defaultAvatar;
+      }
+    };
+    let tipDiv = null;
+    img.onmouseenter = (e) => {
+      img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
+      img.style.borderColor = '#67c23a';
+      img.style.zIndex = 30000;
+      img.style.cursor = 'pointer';
+      tipDiv = document.createElement('div');
+      tipDiv.className = 'user-marker-tip';
+      tipDiv.innerText = u.username;
+      tipDiv.style.position = 'fixed';
+      tipDiv.style.left = (e.clientX + 16) + 'px';
+      tipDiv.style.top = (e.clientY + 16) + 'px';
+      tipDiv.style.background = '#409eff';
+      tipDiv.style.color = '#fff';
+      tipDiv.style.padding = '4px 12px';
+      tipDiv.style.borderRadius = '6px';
+      tipDiv.style.fontSize = '15px';
+      tipDiv.style.zIndex = 30001;
+      tipDiv.style.pointerEvents = 'none';
+      tipDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+      document.body.appendChild(tipDiv);
+      img.onmousemove = (ev) => {
+        if (tipDiv) {
+          tipDiv.style.left = (ev.clientX + 16) + 'px';
+          tipDiv.style.top = (ev.clientY + 16) + 'px';
+        }
+      };
+    };
+    img.onmouseleave = () => {
+      img.style.boxShadow = '';
+      img.style.borderColor = '#409eff';
+      img.style.zIndex = '';
+      img.style.cursor = '';
+      if (tipDiv) {
+        document.body.removeChild(tipDiv);
+        tipDiv = null;
+      }
+      img.onmousemove = null;
+    };
+    el.onclick = (e) => {
+      console.log('[Map.vue] user-marker div onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
+      if (window.__drawdistance_disable_userinfo__) {
+        e && e.stopPropagation();
+        e && e.preventDefault();
+        return false;
+      }
+      handleUserMarkerClick(u, e);
+    };
+    img.onclick = (e) => {
+      console.log('[Map.vue] user-marker img onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
+      if (window.__drawdistance_disable_userinfo__) {
+        e && e.stopPropagation();
+        e && e.preventDefault();
+        return false;
+      }
+      handleUserMarkerClick(u, e);
+    };
+    const overlay = new Overlay({
+      element: el,
+      positioning: 'center-center',
+      stopEvent: false
+    });
+    overlay.setPosition(fromLonLat([u.lng, u.lat], olmap.getView().getProjection()));
+    olmap.addOverlay(overlay);
+    overlays.push(overlay);
+  });
+};
+
 // 搜索附近用户（3km内，带头像）
 const searchNearby = async () => {
   if (!olmap) return;
@@ -219,90 +305,25 @@ const searchNearby = async () => {
       params: { lng: centerLng, lat: centerLat, radius: 3000 }
     });
     nearbyUsers.value = res.data || [];
-    nearbyUsers.value.forEach(u => {
-      if (u.lng == null || u.lat == null) return;
-      const el = document.createElement('div');
-      el.className = 'user-marker';
-      const avatarUrl = u.avatar || defaultAvatar;
-      el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
-      // 防止死循环
-      const img = el.querySelector('img');
-      img.onerror = function() {
-        if (!this._tried) {
-          this._tried = 1;
-          this.src = defaultAvatar;
-        }
-      };
-
-      // 新增：鼠标移入时加光影、显示用户名提示，光标变为手型
-      let tipDiv = null;
-      img.onmouseenter = (e) => {
-        img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
-        img.style.borderColor = '#67c23a';
-        img.style.zIndex = 30000;
-        img.style.cursor = 'pointer';
-        tipDiv = document.createElement('div');
-        tipDiv.className = 'user-marker-tip';
-        tipDiv.innerText = u.username;
-        tipDiv.style.position = 'fixed';
-        tipDiv.style.left = (e.clientX + 16) + 'px';
-        tipDiv.style.top = (e.clientY + 16) + 'px';
-        tipDiv.style.background = '#409eff';
-        tipDiv.style.color = '#fff';
-        tipDiv.style.padding = '4px 12px';
-        tipDiv.style.borderRadius = '6px';
-        tipDiv.style.fontSize = '15px';
-        tipDiv.style.zIndex = 30001;
-        tipDiv.style.pointerEvents = 'none';
-        tipDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
-        document.body.appendChild(tipDiv);
-        img.onmousemove = (ev) => {
-          if (tipDiv) {
-            tipDiv.style.left = (ev.clientX + 16) + 'px';
-            tipDiv.style.top = (ev.clientY + 16) + 'px';
-          }
-        };
-      };
-      img.onmouseleave = () => {
-        img.style.boxShadow = '';
-        img.style.borderColor = '#409eff';
-        img.style.zIndex = '';
-        img.style.cursor = '';
-        if (tipDiv) {
-          document.body.removeChild(tipDiv);
-          tipDiv = null;
-        }
-        img.onmousemove = null;
-      };
-
-      el.onclick = (e) => {
-        console.log('[Map.vue] user-marker div onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
-        if (window.__drawdistance_disable_userinfo__) {
-          e && e.stopPropagation();
-          e && e.preventDefault();
-          return false;
-        }
-        handleUserMarkerClick(u, e);
-      };
-      img.onclick = (e) => {
-        console.log('[Map.vue] user-marker img onclick, __drawdistance_disable_userinfo__:', window.__drawdistance_disable_userinfo__, u.username, e);
-        if (window.__drawdistance_disable_userinfo__) {
-          e && e.stopPropagation();
-          e && e.preventDefault();
-          return false;
-        }
-        handleUserMarkerClick(u, e);
-      };
-
-      const overlay = new Overlay({
-        element: el,
-        positioning: 'center-center',
-        stopEvent: false
-      });
-      overlay.setPosition(fromLonLat([u.lng, u.lat], olmap.getView().getProjection()));
-      olmap.addOverlay(overlay);
-      overlays.push(overlay);
-    });
+    // 分批渲染
+    renderedUsers.value = [];
+    pendingUsers = [...nearbyUsers.value];
+    if (renderTimer) clearInterval(renderTimer);
+    // 先渲染前10个
+    const firstBatch = pendingUsers.splice(0, 10);
+    renderedUsers.value.push(...firstBatch);
+    renderUserMarkers(firstBatch);
+    // 后续每100ms渲染10个
+    renderTimer = setInterval(() => {
+      if (pendingUsers.length === 0) {
+        clearInterval(renderTimer);
+        renderTimer = null;
+        return;
+      }
+      const batch = pendingUsers.splice(0, 10);
+      renderedUsers.value.push(...batch);
+      renderUserMarkers(batch);
+    }, 100);
   } catch (err) {
     console.error('搜索附近用户失败:', err);
     errorMsg.value = '搜索附近用户失败';
