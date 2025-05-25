@@ -309,33 +309,93 @@ onMounted(() => {
     return;
   }
 
-  const viewOpts = Object.assign({
-    projection: 'EPSG:3857',
-    center: [12758612.973162018, 3562849.0216611675],
-    zoom: 17.5
-  }, props.viewConf);
+  // 优先尝试获取用户当前位置
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const userLng = pos.coords.longitude;
+        const userLat = pos.coords.latitude;
+        const center = fromLonLat([userLng, userLat], 'EPSG:3857');
+        const viewOpts = Object.assign({
+          projection: 'EPSG:3857',
+          center,
+          zoom: 17.5
+        }, props.viewConf);
 
-  // 不初始化任何底图图层
-  const map = new Map({
-    target: 'mapDom',
-    view: new View(viewOpts),
-    layers: []
-  });
+        const map = new Map({
+          target: 'mapDom',
+          view: new View(viewOpts),
+          layers: []
+        });
 
-  window.map = map;
-  olmap = map;
-  console.log('地图实例创建成功:', map);
+        window.map = map;
+        olmap = map;
+        console.log('地图实例创建成功:', map);
 
-  emit('created', map);
+        emit('created', map);
 
-  window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
-  // 触发一次底图初始化为天地图
-  setTimeout(() => {
-    window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
-  }, 0);
-  mousePositionReady.value = true; // 地图创建后标记ready
+        window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
+        }, 0);
+        mousePositionReady.value = true;
+        startWatchUserPosition();
+      },
+      err => {
+        // 定位失败，使用默认中心
+        const viewOpts = Object.assign({
+          projection: 'EPSG:3857',
+          center: [12758612.973162018, 3562849.0216611675],
+          zoom: 17.5
+        }, props.viewConf);
 
-  startWatchUserPosition(); // 页面加载即请求权限并实时监听，仅前端显示
+        const map = new Map({
+          target: 'mapDom',
+          view: new View(viewOpts),
+          layers: []
+        });
+
+        window.map = map;
+        olmap = map;
+        console.log('地图实例创建成功(定位失败):', map);
+
+        emit('created', map);
+
+        window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
+        }, 0);
+        mousePositionReady.value = true;
+        startWatchUserPosition();
+      }
+    );
+  } else {
+    // 浏览器不支持定位，使用默认中心
+    const viewOpts = Object.assign({
+      projection: 'EPSG:3857',
+      center: [12758612.973162018, 3562849.0216611675],
+      zoom: 17.5
+    }, props.viewConf);
+
+    const map = new Map({
+      target: 'mapDom',
+      view: new View(viewOpts),
+      layers: []
+    });
+
+    window.map = map;
+    olmap = map;
+    console.log('地图实例创建成功(不支持定位):', map);
+
+    emit('created', map);
+
+    window.dispatchEvent(new CustomEvent('map-created', { detail: map }));
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
+    }, 0);
+    mousePositionReady.value = true;
+    startWatchUserPosition();
+  }
 });
 </script>
 
