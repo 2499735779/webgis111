@@ -299,24 +299,26 @@ onBeforeUnmount(() => {
 .distance-switch-panel {
   position: fixed;
   right: 40px;
-  bottom: 140px;
+  bottom: 80px; /* 原来140px，整体下移并缩小高度 */
   z-index: 1202;
   background: rgba(255,255,255,0.95);
-  border-radius: 8px;
+  border-radius: 7px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  padding: 8px 18px;
+  padding: 4px 10px; /* 缩小内边距 */
   margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px; /* 缩小间距 */
   pointer-events: auto;
+  min-width: 120px;
+  min-height: 32px;
 }
 .distance-label {
   background: #409eff;
   color: #fff;
-  padding: 4px 12px;
+  padding: 2px 8px;
   border-radius: 6px;
-  font-size: 15px;
+  font-size: 13px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   white-space: nowrap;
 }
@@ -327,9 +329,9 @@ onBeforeUnmount(() => {
   top: 0;
   background: #409eff;
   color: #fff;
-  padding: 4px 12px;
+  padding: 2px 8px;
   border-radius: 6px;
-  font-size: 15px;
+  font-size: 13px;
   z-index: 99999;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);

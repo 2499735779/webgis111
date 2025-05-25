@@ -69,12 +69,26 @@ onMounted(() => {
   margin-bottom: 0;
   display: flex;
   flex-direction: row;
-  gap: 18px;
+  gap: 10px; /* 缩小间距 */
   align-items: center;
-  font-size: 15px;
+  font-size: 13px; /* 缩小字体 */
 }
 .ml-2 {
-  margin-left: 18px;
+  margin-left: 10px; /* 缩小间距 */
+}
+.control-panel {
+  /* 缩小整体尺寸 */
+  padding: 4px 10px;
+  min-width: 120px;
+  min-height: 32px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 7px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  position: fixed;
+  right: 40px;
+  bottom: 40px;
+  z-index: 3002;
+  pointer-events: auto;
 }
 .mousPos {
   position: absolute;
