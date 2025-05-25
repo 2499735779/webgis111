@@ -4,47 +4,54 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import Map from '../Map.vue'
 
 const mousePosRef = ref(null)
+let control = null
+let mapInstance = null
+const visible = ref(true)
 
-const createMousePosition = map =>
-{
-  // 创建鼠标位置控件，显示经纬度（小数点后5位，自动判别方向，且为EPSG:4326经纬度）
-  const control = new MousePosition({
+// 监听 switch.vue 的开关事件
+onMounted(() => {
+  if (window.__mousePositionEmitter__) {
+    window.__mousePositionEmitter__.on('mousePositionSwitch', (val) => {
+      visible.value = val
+      if (mapInstance && control) {
+        control.element.style.display = val ? '' : 'none'
+      }
+    })
+  }
+})
+
+const createMousePosition = map => {
+  mapInstance = map
+  control = new MousePosition({
     className: 'mousPos',
     projection: 'EPSG:4326',
     coordinateFormat: coord => {
       if (!coord) return ''
-      // EPSG:4326 格式为 [经度, 纬度]
       const lng = Number(coord[0])
       const lat = Number(coord[1])
       const latDir = lat >= 0 ? '北纬' : '南纬'
       const lngDir = lng >= 0 ? '东经' : '西经'
-      // 保证只显示5位小数
       return `${latDir}：${Math.abs(lat).toFixed(5)}  ${lngDir}：${Math.abs(lng).toFixed(5)}`
     }
   })
   map.addControl(control)
+  // 初始显示状态
+  if (!visible.value) {
+    control.element.style.display = 'none'
+  }
 }
 
-const updateMousePos = e => {
-  const el = mousePosRef.value
-  if (!el) return
-  el.style.left = ''
-  el.style.top = ''
-  el.style.right = '20px'
-  el.style.bottom = '20px'
-}
-
-onMounted(() => {
-  window.addEventListener('mousemove', updateMousePos)
-})
 onBeforeUnmount(() => {
-  window.removeEventListener('mousemove', updateMousePos)
+  if (mapInstance && control) {
+    mapInstance.removeControl(control)
+    control = null
+  }
 })
 </script>
 
 <template>
   <Map @created="createMousePosition"></Map>
-  <div ref="mousePosRef" class="mousPos"></div>
+  <!-- 控件本身由 OpenLayers 注入到地图容器，无需额外渲染 -->
 </template>
 
 <style>
