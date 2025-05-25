@@ -86,7 +86,7 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   position: fixed;
   right: 40px;
-  bottom: 40px;
+  bottom: 70px; /* 向上微调，原来40px */
   z-index: 3002;
   pointer-events: auto;
 }

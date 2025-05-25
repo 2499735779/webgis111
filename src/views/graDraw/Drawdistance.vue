@@ -299,7 +299,7 @@ onBeforeUnmount(() => {
 .distance-switch-panel {
   position: fixed;
   right: 40px;
-  bottom: 80px; /* 原来140px，整体下移并缩小高度 */
+  bottom: 110px; /* 向上微调，原来80px */
   z-index: 1202;
   background: rgba(255,255,255,0.95);
   border-radius: 7px;
