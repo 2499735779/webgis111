@@ -27,6 +27,7 @@ const isSelf = ref(false);
 const isFriend = ref(false);
 const friends = ref([]);
 const pendingFriendRequests = ref([]);
+const mousePositionReady = ref(false);
 
 // 新增：控制地图用户弹窗显示时右下角控件隐藏
 const setGlobalDialogVisible = window.setGlobalDialogVisible || (()=>{});
@@ -238,6 +239,7 @@ onMounted(() => {
     console.log('地图实例已存在，复用现有实例:', window.map);
     olmap = window.map;
     emit('created', window.map);
+    mousePositionReady.value = true; // 地图已存在，直接标记ready
     // 触发一次底图初始化为天地图
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
@@ -269,6 +271,7 @@ onMounted(() => {
   setTimeout(() => {
     window.dispatchEvent(new CustomEvent('refresh-basemap', { detail: 'tian' }));
   }, 0);
+  mousePositionReady.value = true; // 地图创建后标记ready
 });
 </script>
 
@@ -323,7 +326,7 @@ onMounted(() => {
       </div>
     </el-dialog>
     <!-- 挂载鼠标位置控件 -->
-    <MousePosition />
+    <MousePosition v-if="mousePositionReady" />
   </div>
 </template>
 
