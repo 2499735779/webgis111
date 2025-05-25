@@ -211,10 +211,35 @@ const showDeleteOverlay = (coords) => {
 
 onMounted(() => {
   olmap = getMainMap()
-  console.log('[Drawdistance] onMounted, window.map:', window.map)
-  console.log('[Drawdistance] onMounted, olmap:', olmap)
   if (!olmap) {
-    console.error('Drawdistance: 主地图实例 window.map 不存在')
+    // 地图未初始化，监听 map-created 事件
+    window.addEventListener('map-created', (e) => {
+      olmap = e.detail
+      // 复制 onMounted 里的初始化逻辑到这里
+      if (!olmap.getSource) {
+        drawLayer = new VectorLayer({
+          source: new VectorSource()
+        })
+        olmap.addLayer(drawLayer)
+        olmap.getSource = () => drawLayer.getSource()
+      } else {
+        drawLayer = olmap.getLayers().getArray().find(l => l instanceof VectorLayer)
+      }
+      olmap.getViewport().addEventListener('click', (e) => {
+        if (!drawActive.value) return
+        window.__drawdistance_disable_userinfo__ = true
+        let marker = e.target.closest && e.target.closest('.user-marker')
+        if (marker && marker.__ol_position) {
+          handleUserMarkerClick(marker.__ol_position)
+        } else if (marker && marker.dataset && marker.dataset.olPosition) {
+          try {
+            const coord = JSON.parse(marker.dataset.olPosition)
+            handleUserMarkerClick(coord)
+          } catch {}
+        }
+      })
+      console.log('[Drawdistance] 初始化完成(延迟)')
+    }, { once: true })
     return
   }
   // 保证有一个 vector source 用于画线

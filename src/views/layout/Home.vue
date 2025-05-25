@@ -76,6 +76,7 @@ async function refreshPendingRequests() {
 // 定时轮询刷新
 let pendingTimer = null;
 let friendTipTimer = null;
+const mapReady = ref(false);
 onMounted(() => {
   refreshPendingRequests();
   // 删除定时轮询
@@ -84,6 +85,14 @@ onMounted(() => {
   // friendTipTimer = setInterval(checkFriendTipUnread, 1000);
   window.friendMenuRef = friendMenuRef;
   console.log('[Home.vue] onMounted, Drawdistance ref:', Drawdistance);
+  // 监听地图初始化完成
+  if (window.map) {
+    mapReady.value = true;
+  } else {
+    window.addEventListener('map-created', () => {
+      mapReady.value = true;
+    }, { once: true });
+  }
 });
 onBeforeUnmount(() => {
   // if (pendingTimer) clearInterval(pendingTimer);
@@ -345,7 +354,8 @@ function onUserAvatarClick() {
           <router-view />
         </main>
         <PublicMap />
-        <Drawdistance @mounted="() => console.log('[Home.vue] Drawdistance mounted')" />
+        <!-- 只在地图初始化后再挂载测距控件 -->
+        <Drawdistance v-if="mapReady" @mounted="() => console.log('[Home.vue] Drawdistance mounted')" />
       </div>
     </div>
     <!-- 右下角控件组合：仅在非登录页且未显示任何弹窗时可见 -->
