@@ -19,7 +19,7 @@ const errorMsg = ref('');
 let olmap = null;
 
 let userPositionOverlay = null; // 实时位置覆盖物
-let watchId = null;             // 实时监听ID
+let watchId = null;             // 定时器ID
 
 const showNearby = ref(false);
 const nearbyUsers = ref([]);
@@ -84,49 +84,56 @@ const handleUserMarkerClick = async (u, e) => {
   isFriend.value = friends.value.includes(u.username);
 };
 
-// 实时监听用户位置，仅前端展示，不上传后端
+// 每分钟刷新一次用户位置，仅前端展示，不上传后端
 const startWatchUserPosition = () => {
   if (!navigator.geolocation) {
     errorMsg.value = '当前浏览器不支持地理位置获取';
     return;
   }
+  // 清理旧的定时器
   if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
+    clearInterval(watchId);
     watchId = null;
   }
-  watchId = navigator.geolocation.watchPosition(
-    pos => {
-      // 只用于前端显示
-      const lngVal = pos.coords.longitude;
-      const latVal = pos.coords.latitude;
-      // 地图和覆盖物准备好后，显示用户位置
-      if (olmap) {
-        const coord = fromLonLat([lngVal, latVal], olmap.getView().getProjection());
-        if (!userPositionOverlay) {
-          const el = document.createElement('div');
-          el.className = 'user-location-marker';
-          el.innerHTML = `<span style="display:inline-block;width:18px;height:18px;background:#67c23a;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.18);"></span>`;
-          userPositionOverlay = new Overlay({
-            element: el,
-            positioning: 'center-center',
-            stopEvent: false
-          });
-          olmap.addOverlay(userPositionOverlay);
+  // 定义刷新函数
+  const refreshPosition = () => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        // 只用于前端显示
+        const lngVal = pos.coords.longitude;
+        const latVal = pos.coords.latitude;
+        if (olmap) {
+          const coord = fromLonLat([lngVal, latVal], olmap.getView().getProjection());
+          if (!userPositionOverlay) {
+            const el = document.createElement('div');
+            el.className = 'user-location-marker';
+            el.innerHTML = `<span style="display:inline-block;width:18px;height:18px;background:#67c23a;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.18);"></span>`;
+            userPositionOverlay = new Overlay({
+              element: el,
+              positioning: 'center-center',
+              stopEvent: false
+            });
+            olmap.addOverlay(userPositionOverlay);
+          }
+          userPositionOverlay.setPosition(coord);
         }
-        userPositionOverlay.setPosition(coord);
-      }
-    },
-    err => {
-      errorMsg.value = '定位失败: ' + err.message;
-    },
-    { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
-  );
+      },
+      err => {
+        errorMsg.value = '定位失败: ' + err.message;
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+    );
+  };
+  // 立即刷新一次
+  refreshPosition();
+  // 每60秒刷新一次
+  watchId = setInterval(refreshPosition, 60000);
 };
 
-// 页面卸载时清理监听
+// 页面卸载时清理定时器和覆盖物
 onBeforeUnmount(() => {
   if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
+    clearInterval(watchId);
     watchId = null;
   }
   if (olmap && userPositionOverlay) {
