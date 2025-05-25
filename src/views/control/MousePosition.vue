@@ -65,10 +65,17 @@ function setupMousePosition() {
       const latDir = lat >= 0 ? '北纬' : '南纬'
       const lngDir = lng >= 0 ? '东经' : '西经'
       return `${latDir}：${Math.abs(lat).toFixed(5)}  ${lngDir}：${Math.abs(lng).toFixed(5)}`
-    }
+    },
+    // 关键：指定 target 为 null，确保控件被自动插入到地图容器
+    target: null
   })
   mapInstance.addControl(control)
   log('已 addControl 到 mapInstance', control)
+  // 检查控件 DOM 是否已插入
+  setTimeout(() => {
+    const el = document.querySelector('.mousPos')
+    log('控件DOM:', el)
+  }, 500)
   // 初始显示状态
   if (!visible.value && control.element) {
     control.element.style.display = 'none'
