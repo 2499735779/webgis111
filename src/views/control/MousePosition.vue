@@ -1,6 +1,5 @@
 <script setup>
 import MousePosition from 'ol/control/MousePosition.js'
-import { toStringHDMS } from 'ol/coordinate.js'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import Map from '../Map.vue'
 
@@ -8,13 +7,17 @@ const mousePosRef = ref(null)
 
 const createMousePosition = map =>
 {
-  // 创建鼠标位置控件，显示经纬度（小数点后5位）
+  // 创建鼠标位置控件，显示经纬度（小数点后5位，自动判别方向）
   const control = new MousePosition({
     className: 'mousPos',
     projection: 'EPSG:4326',
     coordinateFormat: coord => {
       if (!coord) return ''
-      return `经度: ${coord[0].toFixed(5)} , 纬度: ${coord[1].toFixed(5)}`
+      const lng = coord[0]
+      const lat = coord[1]
+      const latDir = lat >= 0 ? '北纬' : '南纬'
+      const lngDir = lng >= 0 ? '东经' : '西经'
+      return `${latDir}：${Math.abs(lat).toFixed(5)}  ${lngDir}：${Math.abs(lng).toFixed(5)}`
     }
   })
   map.addControl(control)
