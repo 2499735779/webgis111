@@ -1,27 +1,43 @@
 <script setup>
 import MousePosition from 'ol/control/MousePosition.js'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import Map from '../Map.vue'
 
-const mousePosRef = ref(null)
 let control = null
 let mapInstance = null
 const visible = ref(true)
 
 // 监听 switch.vue 的开关事件
 onMounted(() => {
+  // 获取全局 map 实例
+  mapInstance = window.map
+  if (!mapInstance) {
+    // 地图未初始化，等待地图创建事件
+    window.addEventListener('map-created', (e) => {
+      mapInstance = e.detail
+      setupMousePosition()
+    }, { once: true })
+  } else {
+    setupMousePosition()
+  }
+
+  // 监听开关事件
   if (window.__mousePositionEmitter__) {
     window.__mousePositionEmitter__.on('mousePositionSwitch', (val) => {
       visible.value = val
-      if (mapInstance && control) {
+      if (control && control.element) {
         control.element.style.display = val ? '' : 'none'
       }
     })
   }
 })
 
-const createMousePosition = map => {
-  mapInstance = map
+function setupMousePosition() {
+  if (!mapInstance) return
+  // 避免重复添加控件
+  if (control) {
+    mapInstance.removeControl(control)
+    control = null
+  }
   control = new MousePosition({
     className: 'mousPos',
     projection: 'EPSG:4326',
@@ -34,9 +50,9 @@ const createMousePosition = map => {
       return `${latDir}：${Math.abs(lat).toFixed(5)}  ${lngDir}：${Math.abs(lng).toFixed(5)}`
     }
   })
-  map.addControl(control)
+  mapInstance.addControl(control)
   // 初始显示状态
-  if (!visible.value) {
+  if (!visible.value && control.element) {
     control.element.style.display = 'none'
   }
 }
@@ -50,8 +66,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Map @created="createMousePosition"></Map>
-  <!-- 控件本身由 OpenLayers 注入到地图容器，无需额外渲染 -->
+  <!-- 此组件不渲染任何内容，控件由 OpenLayers 注入 -->
 </template>
 
 <style>
