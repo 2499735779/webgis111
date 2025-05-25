@@ -139,6 +139,10 @@ client.connect().then(() => {
   app.post('/api/user-location', async (req, res) => {
     const { username, avatar, lng, lat } = req.body;
     if (!username || !lng || !lat) return res.json({ success: false, message: '参数缺失' });
+    // 确保唯一索引：username
+    // 1. 强制为 username 字段建立唯一索引（只需执行一次，后续自动生效）
+    await db.collection('userLocations').createIndex({ username: 1 }, { unique: true });
+    // 2. 覆盖式 upsert
     await db.collection('userLocations').updateOne(
       { username },
       {

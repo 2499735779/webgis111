@@ -228,11 +228,11 @@ const renderUserMarkers = (users) => {
     console.warn('olmap 未初始化，无法渲染用户 marker');
     return;
   }
-  // 先清理所有 overlays，避免重复渲染和 DOM 残留
-  overlays.forEach(ov => {
-    if (olmap) olmap.removeOverlay(ov);
-  });
-  overlays.length = 0;
+  // 不要清理 overlays，只渲染新增的用户
+  // overlays.forEach(ov => {
+  //   if (olmap) olmap.removeOverlay(ov);
+  // });
+  // overlays.length = 0;
 
   users.forEach(u => {
     if (u.lng == null || u.lat == null) return;
@@ -332,7 +332,8 @@ const renderUserMarkers = (users) => {
 // 搜索附近用户（3km内，带头像）
 const searchNearby = async () => {
   if (!olmap) return;
-  clearNearbyOverlays();
+  // 不要清理 overlays
+  // clearNearbyOverlays();
   errorMsg.value = '正在搜索附近用户...';
   const center = olmap.getView().getCenter();
   const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
@@ -349,23 +350,8 @@ const searchNearby = async () => {
       olmap.getView().setCenter(coord);
       olmap.getView().setZoom(18);
     }
-    // 分批渲染（每批5个，每50ms）
-    renderedUsers.value = [];
-    pendingUsers = [...nearbyUsers.value];
-    if (renderTimer) clearInterval(renderTimer);
-    const firstBatch = pendingUsers.splice(0, 5);
-    renderedUsers.value.push(...firstBatch);
-    renderUserMarkers(firstBatch);
-    renderTimer = setInterval(() => {
-      if (pendingUsers.length === 0) {
-        clearInterval(renderTimer);
-        renderTimer = null;
-        return;
-      }
-      const batch = pendingUsers.splice(0, 5);
-      renderedUsers.value.push(...batch);
-      renderUserMarkers(batch);
-    }, 50);
+    // 直接渲染所有用户
+    renderUserMarkers(nearbyUsers.value);
   } catch (err) {
     console.error('搜索附近用户失败:', err);
     errorMsg.value = '搜索附近用户失败';
