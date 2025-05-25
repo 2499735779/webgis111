@@ -70,8 +70,10 @@ io.on('connection', (socket) => {
   });
 });
 
-client.connect().then(() => {
+client.connect().then(async () => {
   db = client.db('webgis0');
+  // 只建一次唯一索引
+  await db.collection('userLocations').createIndex({ username: 1 }, { unique: true });
   console.log('Connected to MongoDB Atlas');
 
   // 定义 computeUnreadMapForUser 函数，用于计算某个用户的未读消息映射
