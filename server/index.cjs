@@ -104,29 +104,27 @@ client.connect().then(() => {
     await userCol.insertOne({ username, password });
     res.json({ success: true });
   });
-app.post('/api/user-login', async (req, res) => {
-  try {
-    // 添加调试日志，这样你可以在服务器日志中看到实际收到的请求体数据
-    console.log("收到 POST /api/user-login 请求, req.body:", req.body);
-    
-    const { username, password } = req.body;
-    const userCol = db.collection('users');
-    const user = await userCol.findOne({ username, password });
-    
-    if (!user) {
-      console.log("用户未找到:", username);
-      return res.json({ success: false, message: '账号或密码错误' });
+
+  app.post('/api/user-login', async (req, res) => {
+    try {
+      console.log("收到 POST /api/user-login 请求, req.body:", req.body);
+      const { username, password } = req.body;
+      const userCol = db.collection('users');
+      const user = await userCol.findOne({ username, password });
+      if (!user) {
+        console.log("用户未找到:", username);
+        return res.json({ success: false, message: '账号或密码错误' });
+      }
+      res.json({ success: true, user: { username: user.username } });
+    } catch (err) {
+      console.error("Error in /api/user-login:", err);
+      res.status(500).json({ success: false, message: 'Internal Server Error' });
     }
-    res.json({ success: true, user: { username: user.username } });
-  } catch (err) {
-    console.error("Error in /api/user-login:", err);
-    res.status(500).json({ success: false, message: 'Internal Server Error' });
-  }
-});
+  });
 
   app.get('/api/user-login', (req, res) => {
-  res.json({ message: "This endpoint requires a POST request." });
-});
+    res.json({ message: "This endpoint requires a POST request." });
+  });
 
   // 用户头像上传/更换
   app.post('/api/user-avatar', async (req, res) => {
@@ -143,7 +141,16 @@ app.post('/api/user-login', async (req, res) => {
     if (!username || !lng || !lat) return res.json({ success: false, message: '参数缺失' });
     await db.collection('userLocations').updateOne(
       { username },
-      { $set: { username, avatar, lng, lat, updatedAt: new Date() } },
+      {
+        $set: {
+          username,
+          avatar,
+          lng,
+          lat,
+          updatedAt: new Date(),
+          location: { type: "Point", coordinates: [Number(lng), Number(lat)] }
+        }
+      },
       { upsert: true }
     );
     res.json({ success: true });
@@ -159,33 +166,19 @@ app.post('/api/user-login', async (req, res) => {
   app.get('/api/nearby-users', async (req, res) => {
     const { lng, lat, radius } = req.query;
     if (!lng || !lat) return res.json([]);
-    const centerLng = Number(lng);
-    const centerLat = Number(lat);
+    const center = [Number(lng), Number(lat)];
     const r = Number(radius) || 3000;
-
-    // 查询所有有位置的用户
-    const locations = await db.collection('userLocations').find({ lng: { $exists: true }, lat: { $exists: true } }).toArray();
-    const result = [];
-    for (const loc of locations) {
-      const toRad = d => d * Math.PI / 180;
-      const earthR = 6371000;
-      const dLat = toRad(loc.lat - centerLat);
-      const dLng = toRad(loc.lng - centerLng);
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(centerLat)) * Math.cos(toRad(loc.lat)) *
-        Math.sin(dLng / 2) ** 2;
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const dist = earthR * c;
-      if (dist <= r) {
-        result.push({
-          username: loc.username,
-          lng: loc.lng,
-          lat: loc.lat,
-          avatar: loc.avatar
-        });
+    const users = await db.collection('userLocations').find({
+      location: {
+        $nearSphere: {
+          $geometry: { type: "Point", coordinates: center },
+          $maxDistance: r
+        }
       }
-    }
-    res.json(result);
+    }, {
+      projection: { username: 1, lng: 1, lat: 1, avatar: 1 }
+    }).limit(100).toArray();
+    res.json(users);
   });
 
   // 获取用户好友列表
@@ -218,17 +211,16 @@ app.post('/api/user-login', async (req, res) => {
       from,
       to,
       content,
-      type: type || 'text',
+      type: type || 'chat',
       read: false,
       createdAt: new Date()
     };
     await db.collection('messages').insertOne(msg);
-    res.json({ success: true });
-    // 实时推送新消息给接收者，事件名称统一为 'chat-message'
     io.to(to).emit('chat-message', msg);
     // 计算最新的未读消息状态并推送给目标用户
     const updatedUnreadMap = await computeUnreadMapForUser(to);
     io.to(to).emit('unread-updated', updatedUnreadMap);
+    res.json({ success: true });
   });
 
   // 获取与某好友的消息（含好友请求）
@@ -267,7 +259,6 @@ app.post('/api/user-login', async (req, res) => {
     const { from, to } = req.body;
     if (!from || !to || from === to)
       return res.json({ success: false, message: '参数错误' });
-    // 插入一条类型为 friend-request 的消息
     await db.collection('messages').insertOne({
       from,
       to,
@@ -281,7 +272,6 @@ app.post('/api/user-login', async (req, res) => {
       from, to, type: 'friend-request-rejected'
     });
     res.json({ success: true });
-    // 实时推送好友请求更新通知给目标用户，统一使用 'pending-requests-updated'
     io.to(to).emit('pending-requests-updated');
   });
 
@@ -342,12 +332,11 @@ app.post('/api/user-login', async (req, res) => {
       from, to: username, type: 'friend-request'
     });
     res.json({ success: true });
-    // 推送更新通知（统一使用 'pending-requests-updated'）
     io.to(username).emit('pending-requests-updated');
     io.to(from).emit('pending-requests-updated');
   });
 
-  // 启动 HTTPS 服务，监听 443 端口（请确保防火墙或网络策略允许该端口访问）
+  // 启动 HTTPS 服务，监听 443 端口
   const port = 443;
   server.listen(port, () => {
     console.log(`HTTPS Server running on port ${port}`);

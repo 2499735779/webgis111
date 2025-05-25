@@ -319,6 +319,7 @@ const renderUserMarkers = (users) => {
 const searchNearby = async () => {
   if (!olmap) return;
   clearNearbyOverlays();
+  errorMsg.value = '正在搜索附近用户...';
   const center = olmap.getView().getCenter();
   const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
   try {
@@ -326,6 +327,7 @@ const searchNearby = async () => {
       params: { lng: centerLng, lat: centerLat, radius: 3000 }
     });
     nearbyUsers.value = res.data || [];
+    errorMsg.value = '';
     // 自动定位到第一个用户
     if (nearbyUsers.value.length > 0) {
       const first = nearbyUsers.value[0];
@@ -333,25 +335,23 @@ const searchNearby = async () => {
       olmap.getView().setCenter(coord);
       olmap.getView().setZoom(18);
     }
-    // 分批渲染
+    // 分批渲染（每批5个，每50ms）
     renderedUsers.value = [];
     pendingUsers = [...nearbyUsers.value];
     if (renderTimer) clearInterval(renderTimer);
-    // 先渲染前10个
-    const firstBatch = pendingUsers.splice(0, 10);
+    const firstBatch = pendingUsers.splice(0, 5);
     renderedUsers.value.push(...firstBatch);
     renderUserMarkers(firstBatch);
-    // 后续每100ms渲染10个
     renderTimer = setInterval(() => {
       if (pendingUsers.length === 0) {
         clearInterval(renderTimer);
         renderTimer = null;
         return;
       }
-      const batch = pendingUsers.splice(0, 10);
+      const batch = pendingUsers.splice(0, 5);
       renderedUsers.value.push(...batch);
       renderUserMarkers(batch);
-    }, 100);
+    }, 50);
   } catch (err) {
     console.error('搜索附近用户失败:', err);
     errorMsg.value = '搜索附近用户失败';
