@@ -273,39 +273,31 @@ let pendingUsers = [];         // 待渲染的用户
 let renderTimer = null;
 
 const renderUserMarkers = (users) => {
-  if (!olmap) return;
-  // 只移除 overlays 数组中存储的用户头像 overlay，绝不遍历 olmap.getOverlays() 批量删除
+  if (!olmap) {
+    console.warn('olmap 未初始化，无法渲染用户 marker');
+    return;
+  }
+  // 修正：每次渲染前清理 overlays，避免叠加
   overlays.forEach(ov => {
-    try {
-      if (olmap && ov) {
-        olmap.removeOverlay(ov);
-      }
-    } catch (err) {
-      console.error('[DEBUG] overlays.forEach removeOverlay error:', err, ov);
-    }
+    if (olmap) olmap.removeOverlay(ov);
   });
   overlays.length = 0;
 
-  // 获取当前地图投影
-  const proj = olmap.getView().getProjection();
-  const projCode = proj.getCode();
-
-  // 只要后端数据正常，直接渲染覆盖物
   users.forEach(u => {
     if (u.lng == null || u.lat == null) return;
     const lng = Number(u.lng);
     const lat = Number(u.lat);
-    if (isNaN(lng) || isNaN(lat)) return;
-    // 坐标转换逻辑
-    let coord;
-    if (projCode === 'EPSG:4326') {
-      coord = [lng, lat];
-    } else {
-      coord = fromLonLat([lng, lat], proj);
+    if (isNaN(lng) || isNaN(lat)) {
+      console.warn('用户坐标不是数字:', u);
+      return;
     }
-    console.debug('[DEBUG] 添加 marker:', u.username, 'lng:', lng, 'lat:', lat);
     const el = document.createElement('div');
     el.className = 'user-marker';
+    // 关键：确保坐标转换为地图当前投影
+    const proj = olmap.getView().getProjection();
+    const coord = proj.getCode() === 'EPSG:3857'
+      ? fromLonLat([lng, lat], proj)
+      : [lng, lat];
     el.__ol_position = coord;
     el.dataset.olPosition = JSON.stringify(coord);
 
@@ -318,7 +310,6 @@ const renderUserMarkers = (users) => {
         this.src = defaultAvatar;
       }
     };
-    // ...existing code for mouse events...
     let tipDiv = null;
     img.onmouseenter = (e) => {
       img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
@@ -374,6 +365,7 @@ const renderUserMarkers = (users) => {
       }
       handleUserMarkerClick(u, e);
     };
+    // 关键：overlay 的 position 必须是地图当前投影坐标
     const overlay = new Overlay({
       element: el,
       positioning: 'center-center',
@@ -383,55 +375,36 @@ const renderUserMarkers = (users) => {
     overlay.setPosition(coord);
     olmap.addOverlay(overlay);
     overlays.push(overlay);
-    // 新增：调试DOM
-    setTimeout(() => {
-      const overlayEl = overlay.getElement();
-      if (overlayEl) {
-        const parent = overlayEl.parentElement;
-        console.debug('[DEBUG] marker DOM parent:', parent, 'display:', parent && parent.style && parent.style.display, overlayEl);
-        // 检查是否被隐藏
-        if (parent && window.getComputedStyle(parent).display === 'none') {
-          console.error('[DEBUG] marker overlay DOM 被隐藏:', overlayEl, parent);
-        }
-      } else {
-        console.error('[DEBUG] marker overlay 没有element:', overlay);
-      }
-    }, 100);
   });
 
-  // 渲染后强制刷新地图和 overlay 容器，确保显示
   if (olmap.renderSync) olmap.renderSync();
   if (olmap.updateSize) olmap.updateSize();
-
+  // 再次延迟强制刷新，确保异步布局后也能刷新
   setTimeout(() => {
-    for (let i = 0; i < 2; i++) {
-      setTimeout(() => {
-        if (olmap.renderSync) olmap.renderSync();
-        if (olmap.updateSize) olmap.updateSize();
-      }, i * 100);
-    }
-    window.olmap = olmap;
-    window.nearbyUsers = users;
-    window._olOverlays = olmap.getOverlays().getArray();
-    window._olMarkers = overlays.map(ov => ov.getElement());
+    if (olmap.renderSync) olmap.renderSync();
+    if (olmap.updateSize) olmap.updateSize();
   }, 100);
+  console.log('当前 overlays 数量:', overlays.length, overlays);
 };
 
 // 搜索附近用户（3km内，带头像）
 const searchNearby = async () => {
   if (!olmap) return;
+  // 修正：每次搜索前清理 overlays，避免叠加
   clearNearbyOverlays();
   errorMsg.value = '正在搜索附近用户...';
 
+  // 强制刷新地图尺寸，确保 overlay 能正常渲染
   if (olmap.updateSize) olmap.updateSize();
   if (olmap.renderSync) olmap.renderSync();
 
+  // 等待地图刷新完成后再请求数据，避免地图未初始化导致坐标异常
   await new Promise(resolve => setTimeout(resolve, 100));
 
   const center = olmap.getView().getCenter();
+  // 容错：center 可能为 null
   if (!center) {
     errorMsg.value = '地图尚未初始化，请稍后重试';
-    console.warn('[DEBUG] searchNearby: 地图中心不存在');
     return;
   }
   const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
@@ -439,19 +412,20 @@ const searchNearby = async () => {
     const res = await axios.get('/api/nearby-users', {
       params: { lng: centerLng, lat: centerLat, radius: 3000 }
     });
-    // 调试：打印后端接口返回的原始数据
-    console.debug('[DEBUG] /api/nearby-users 返回:', res.data);
     nearbyUsers.value = res.data || [];
     errorMsg.value = '';
+    // 自动定位到第一个用户
     if (nearbyUsers.value.length > 0) {
       const first = nearbyUsers.value[0];
       const coord = fromLonLat([Number(first.lng), Number(first.lat)], olmap.getView().getProjection());
       olmap.getView().setCenter(coord);
       olmap.getView().setZoom(18);
+      // 再次刷新地图，确保 overlay 能正常渲染
       if (olmap.updateSize) olmap.updateSize();
       if (olmap.renderSync) olmap.renderSync();
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+    // 直接渲染所有用户
     renderUserMarkers(nearbyUsers.value);
   } catch (err) {
     console.error('搜索附近用户失败:', err);
@@ -460,17 +434,6 @@ const searchNearby = async () => {
 };
 
 onMounted(() => {
-  // 清理多余的 overlay 容器（只保留最新的）
-  setTimeout(() => {
-    const allOverlayContainers = document.querySelectorAll('.ol-overlaycontainer, .ol-overlaycontainer-stopevent');
-    if (allOverlayContainers.length > 2) {
-      // 只保留最后两个（最新的）
-      for (let i = 0; i < allOverlayContainers.length - 2; i++) {
-        allOverlayContainers[i].parentNode && allOverlayContainers[i].parentNode.removeChild(allOverlayContainers[i]);
-      }
-    }
-  }, 500);
-
   console.log('组件挂载，开始初始化地图...');
 
   if (window.map) {
