@@ -16,7 +16,7 @@ const globalDialogVisible = ref(false);
 window.setGlobalDialogVisible = (v) => { globalDialogVisible.value = v; };
 
 const route = useRoute();
-const defaultAvatar = 'https://cdn.jsdelivr.net/gh/xiangyuecn/avatardata@main/blank-avatar.png';
+const defaultAvatar = '/blank-avatar.png';
 const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
 const showUserInfo = ref(false);
 const avatarUrl = ref(user.value.avatar || defaultAvatar);

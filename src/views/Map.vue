@@ -171,7 +171,8 @@ const startWatchUserPosition = () => {
         }
       },
       err => {
-        errorMsg.value = '定位失败: ' + err.message;
+        // 删除后续刷新时的定位失败提示
+        // errorMsg.value = '定位失败: ' + err.message;
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
     );
