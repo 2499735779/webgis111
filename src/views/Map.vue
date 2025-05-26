@@ -329,8 +329,12 @@ const renderUserMarkers = (users) => {
   });
 
   if (olmap.renderSync) olmap.renderSync();
-  // 强制更新地图尺寸，确保 overlay 正确定位
   if (olmap.updateSize) olmap.updateSize();
+  // 再次延迟强制刷新，确保异步布局后也能刷新
+  setTimeout(() => {
+    if (olmap.renderSync) olmap.renderSync();
+    if (olmap.updateSize) olmap.updateSize();
+  }, 100);
   console.log('当前 overlays 数量:', overlays.length, overlays);
 };
 
