@@ -302,6 +302,7 @@ const renderUserMarkers = (users) => {
     el.dataset.olPosition = JSON.stringify(coord);
 
     const avatarUrl = u.avatar || defaultAvatar;
+    console.log('[renderUserMarkers] 用户:', u.username, '头像:', avatarUrl);
     el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
     const img = el.querySelector('img');
     img.onerror = function() {
@@ -389,46 +390,71 @@ const renderUserMarkers = (users) => {
 
 // 搜索附近用户（3km内，带头像）
 const searchNearby = async () => {
-  if (!olmap) return;
+  console.log('[searchNearby] 开始搜索附近用户');
+  if (!olmap) {
+    console.log('[searchNearby] olmap 未初始化，直接返回');
+    return;
+  }
   // 修正：每次搜索前清理 overlays，避免叠加
+  console.log('[searchNearby] 清理旧的 overlays');
   clearNearbyOverlays();
   errorMsg.value = '正在搜索附近用户...';
 
   // 强制刷新地图尺寸，确保 overlay 能正常渲染
-  if (olmap.updateSize) olmap.updateSize();
-  if (olmap.renderSync) olmap.renderSync();
+  if (olmap.updateSize) {
+    console.log('[searchNearby] 调用 olmap.updateSize()');
+    olmap.updateSize();
+  }
+  if (olmap.renderSync) {
+    console.log('[searchNearby] 调用 olmap.renderSync()');
+    olmap.renderSync();
+  }
 
   // 等待地图刷新完成后再请求数据，避免地图未初始化导致坐标异常
   await new Promise(resolve => setTimeout(resolve, 100));
+  console.log('[searchNearby] 地图刷新完成，准备获取中心点');
 
   const center = olmap.getView().getCenter();
   // 容错：center 可能为 null
   if (!center) {
+    console.log('[searchNearby] 地图中心点为空，终止');
     errorMsg.value = '地图尚未初始化，请稍后重试';
     return;
   }
   const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
+  console.log('[searchNearby] 地图中心点:', centerLng, centerLat);
   try {
+    console.log('[searchNearby] 请求后端接口 /api/nearby-users');
     const res = await axios.get('/api/nearby-users', {
       params: { lng: centerLng, lat: centerLat, radius: 3000 }
     });
     nearbyUsers.value = res.data || [];
     errorMsg.value = '';
+    console.log('[searchNearby] 获取到附近用户:', nearbyUsers.value);
     // 自动定位到第一个用户
     if (nearbyUsers.value.length > 0) {
       const first = nearbyUsers.value[0];
       const coord = fromLonLat([Number(first.lng), Number(first.lat)], olmap.getView().getProjection());
+      console.log('[searchNearby] 自动定位到第一个用户:', first.username, coord);
       olmap.getView().setCenter(coord);
       olmap.getView().setZoom(18);
       // 再次刷新地图，确保 overlay 能正常渲染
-      if (olmap.updateSize) olmap.updateSize();
-      if (olmap.renderSync) olmap.renderSync();
+      if (olmap.updateSize) {
+        console.log('[searchNearby] 再次调用 olmap.updateSize()');
+        olmap.updateSize();
+      }
+      if (olmap.renderSync) {
+        console.log('[searchNearby] 再次调用 olmap.renderSync()');
+        olmap.renderSync();
+      }
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     // 直接渲染所有用户
+    console.log('[searchNearby] 渲染用户 marker');
     renderUserMarkers(nearbyUsers.value);
+    console.log('[searchNearby] 渲染完成');
   } catch (err) {
-    console.error('搜索附近用户失败:', err);
+    console.error('[searchNearby] 搜索附近用户失败:', err);
     errorMsg.value = '搜索附近用户失败';
   }
 };
@@ -604,6 +630,17 @@ onMounted(() => {
     window.olmap = olmap;
     startWatchUserPosition();
   }
+
+  window.addEventListener('refresh-basemap', () => {
+    setTimeout(() => {
+      if (olmap) {
+        if (olmap.updateSize) olmap.updateSize();
+        if (olmap.renderSync) olmap.renderSync();
+        // 重新渲染 overlays
+        renderUserMarkers(nearbyUsers.value);
+      }
+    }, 300); // 延迟，确保底图切换完成
+  });
 });
 </script>
 
@@ -811,5 +848,14 @@ html, body, #app {
   z-index: 30001;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* 新增：强制提升 overlay 容器 z-index */
+.ol-overlaycontainer, .ol-overlaycontainer-stopevent {
+  z-index: 99999 !important;
+  pointer-events: none;
+}
+.ol-overlaycontainer .user-marker, .ol-overlaycontainer-stopevent .user-marker {
+  pointer-events: auto;
 }
 </style>
