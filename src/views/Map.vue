@@ -560,10 +560,12 @@ onMounted(() => {
         </svg>
       </div>
       <!-- 删除上传按钮，只保留定位按钮 -->
-      <span v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
     </div>
-    <!-- 底部搜索搭子按钮 -->
+    <!-- 底部搜索搭子按钮和提示信息 -->
     <div class="search-nearby-bar">
+      <div class="search-error-msg-bar">
+        <span v-if="errorMsg" class="error-msg search-error-msg">{{ errorMsg }}</span>
+      </div>
       <el-button type="primary" size="large" @click="searchNearby">搜索附近游戏搭子</el-button>
     </div>
     <!-- 用户信息弹窗 -->
@@ -668,10 +670,8 @@ onMounted(() => {
 .icon {
   font-size: 22px;
 }
+/* 只保留底部提示样式，去除原来左侧的 error-msg 定位 */
 .error-msg {
-  position: absolute;
-  left: 70px;
-  top: 10px;
   color: #f56c6c;
   background: #fff;
   padding: 4px 12px;
@@ -680,6 +680,13 @@ onMounted(() => {
   z-index: 20;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   pointer-events: auto;
+  margin: 0 auto;
+  position: static;
+  display: inline-block;
+  vertical-align: middle;
+}
+.search-error-msg {
+  margin-bottom: 0;
 }
 html, body, #app {
   width: 100%;
@@ -700,8 +707,18 @@ html, body, #app {
   bottom: 18px;
   z-index: 30010;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   pointer-events: auto;
+  gap: 8px;
+}
+.search-error-msg-bar {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 24px;
+  margin-bottom: 2px;
 }
 .user-location-marker {
   position: absolute;
