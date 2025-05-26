@@ -277,138 +277,260 @@ const renderUserMarkers = (users) => {
     console.warn('olmap 未初始化，无法渲染用户 marker');
     return;
   }
-  // 修正：每次渲染前清理 overlays，避免叠加
+  // 彻底清理 overlays，防止残留
   overlays.forEach(ov => {
-    if (olmap) olmap.removeOverlay(ov);
+    try {
+      if (olmap && ov && olmap.getOverlays().getArray().includes(ov)) {
+        olmap.removeOverlay(ov);
+      }
+    } catch (err) {
+      console.error('[DEBUG] overlays.forEach removeOverlay error:', err, ov);
+    }
   });
   overlays.length = 0;
 
-  users.forEach(u => {
-    if (u.lng == null || u.lat == null) return;
-    const lng = Number(u.lng);
-    const lat = Number(u.lat);
-    if (isNaN(lng) || isNaN(lat)) {
-      console.warn('用户坐标不是数字:', u);
-      return;
+  // 先移除所有 className 为 user-marker 的 overlay，保留小绿点
+  olmap.getOverlays().getArray().forEach(ov => {
+    try {
+      if (
+        ov &&
+        ov.getElement &&
+        ov.getElement() &&
+        ov.getElement().classList &&
+        ov.getElement().classList.contains('user-marker')
+      ) {
+        olmap.removeOverlay(ov);
+      }
+    } catch (err) {
+      console.error('[DEBUG] remove user-marker overlay error:', err, ov);
     }
-    const el = document.createElement('div');
-    el.className = 'user-marker';
-    // 关键：确保坐标转换为地图当前投影
-    const proj = olmap.getView().getProjection();
-    const coord = proj.getCode() === 'EPSG:3857'
-      ? fromLonLat([lng, lat], proj)
-      : [lng, lat];
-    el.__ol_position = coord;
-    el.dataset.olPosition = JSON.stringify(coord);
-
-    const avatarUrl = u.avatar || defaultAvatar;
-    el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
-    const img = el.querySelector('img');
-    img.onerror = function() {
-      if (!this._tried) {
-        this._tried = 1;
-        this.src = defaultAvatar;
-      }
-    };
-    let tipDiv = null;
-    img.onmouseenter = (e) => {
-      img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
-      img.style.borderColor = '#67c23a';
-      img.style.zIndex = 30000;
-      img.style.cursor = 'pointer';
-      tipDiv = document.createElement('div');
-      tipDiv.className = 'user-marker-tip';
-      tipDiv.innerText = u.username;
-      tipDiv.style.position = 'fixed';
-      tipDiv.style.left = (e.clientX + 16) + 'px';
-      tipDiv.style.top = (e.clientY + 16) + 'px';
-      tipDiv.style.background = '#409eff';
-      tipDiv.style.color = '#fff';
-      tipDiv.style.padding = '4px 12px';
-      tipDiv.style.borderRadius = '6px';
-      tipDiv.style.fontSize = '15px';
-      tipDiv.style.zIndex = 30001;
-      tipDiv.style.pointerEvents = 'none';
-      tipDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
-      document.body.appendChild(tipDiv);
-      img.onmousemove = (ev) => {
-        if (tipDiv) {
-          tipDiv.style.left = (ev.clientX + 16) + 'px';
-          tipDiv.style.top = (ev.clientY + 16) + 'px';
-        }
-      };
-    };
-    img.onmouseleave = () => {
-      img.style.boxShadow = '';
-      img.style.borderColor = '#409eff';
-      img.style.zIndex = '';
-      img.style.cursor = '';
-      if (tipDiv) {
-        document.body.removeChild(tipDiv);
-        tipDiv = null;
-      }
-      img.onmousemove = null;
-    };
-    el.onclick = (e) => {
-      if (window.__drawdistance_disable_userinfo__) {
-        e && e.stopPropagation();
-        e && e.preventDefault();
-        return false;
-      }
-      handleUserMarkerClick(u, e);
-    };
-    img.onclick = (e) => {
-      if (window.__drawdistance_disable_userinfo__) {
-        e && e.stopPropagation();
-        e && e.preventDefault();
-        return false;
-      }
-      handleUserMarkerClick(u, e);
-    };
-    // 关键：overlay 的 position 必须是地图当前投影坐标
-    const overlay = new Overlay({
-      element: el,
-      positioning: 'center-center',
-      stopEvent: true,
-      insertFirst: false
-    });
-    overlay.setPosition(coord);
-    olmap.addOverlay(overlay);
-    overlays.push(overlay);
   });
 
-  if (olmap.renderSync) olmap.renderSync();
-  if (olmap.updateSize) olmap.updateSize();
-  // 再次延迟强制刷新，确保异步布局后也能刷新
+  // 调试：打印后端返回的用户数据
+  console.debug('[DEBUG] renderUserMarkers users:', users);
+
   setTimeout(() => {
+    if (olmap.updateSize) olmap.updateSize();
+    if (olmap.renderSync) olmap.renderSync();
+
+    if (!olmap.getView || !olmap.getView()) {
+      console.warn('[DEBUG] olmap.getView() 不存在，地图可能未初始化');
+      return;
+    }
+
+    if (!Array.isArray(users)) {
+      console.error('[DEBUG] renderUserMarkers: users 不是数组', users);
+      return;
+    }
+    if (users.length === 0) {
+      console.warn('[DEBUG] renderUserMarkers: users 为空数组');
+    }
+
+    users.forEach(u => {
+      if (u.lng == null || u.lat == null) {
+        console.warn('[DEBUG] 用户缺少 lng/lat 字段:', u);
+        return;
+      }
+      const lng = Number(u.lng);
+      const lat = Number(u.lat);
+      if (isNaN(lng) || isNaN(lat)) {
+        console.warn('[DEBUG] 用户坐标不是数字:', u);
+        return;
+      }
+      // 检查坐标范围
+      if (Math.abs(lng) > 180 || Math.abs(lat) > 90) {
+        console.warn('[DEBUG] 用户坐标超出经纬度范围:', u);
+        return;
+      }
+      console.debug('[DEBUG] 添加 marker:', u.username, 'lng:', lng, 'lat:', lat);
+      const el = document.createElement('div');
+      el.className = 'user-marker';
+      const proj = olmap.getView().getProjection();
+      const coord = proj.getCode() === 'EPSG:3857'
+        ? fromLonLat([lng, lat], proj)
+        : [lng, lat];
+      el.__ol_position = coord;
+      el.dataset.olPosition = JSON.stringify(coord);
+
+      const avatarUrl = u.avatar || defaultAvatar;
+      el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
+      const img = el.querySelector('img');
+      img.onerror = function() {
+        if (!this._tried) {
+          this._tried = 1;
+          this.src = defaultAvatar;
+        }
+      };
+      let tipDiv = null;
+      img.onmouseenter = (e) => {
+        img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
+        img.style.borderColor = '#67c23a';
+        img.style.zIndex = 30000;
+        img.style.cursor = 'pointer';
+        tipDiv = document.createElement('div');
+        tipDiv.className = 'user-marker-tip';
+        tipDiv.innerText = u.username;
+        tipDiv.style.position = 'fixed';
+        tipDiv.style.left = (e.clientX + 16) + 'px';
+        tipDiv.style.top = (e.clientY + 16) + 'px';
+        tipDiv.style.background = '#409eff';
+        tipDiv.style.color = '#fff';
+        tipDiv.style.padding = '4px 12px';
+        tipDiv.style.borderRadius = '6px';
+        tipDiv.style.fontSize = '15px';
+        tipDiv.style.zIndex = 30001;
+        tipDiv.style.pointerEvents = 'none';
+        tipDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+        document.body.appendChild(tipDiv);
+        img.onmousemove = (ev) => {
+          if (tipDiv) {
+            tipDiv.style.left = (ev.clientX + 16) + 'px';
+            tipDiv.style.top = (ev.clientY + 16) + 'px';
+          }
+        };
+      };
+      img.onmouseleave = () => {
+        img.style.boxShadow = '';
+        img.style.borderColor = '#409eff';
+        img.style.zIndex = '';
+        img.style.cursor = '';
+        if (tipDiv) {
+          document.body.removeChild(tipDiv);
+          tipDiv = null;
+        }
+        img.onmousemove = null;
+      };
+      el.onclick = (e) => {
+        if (window.__drawdistance_disable_userinfo__) {
+          e && e.stopPropagation();
+          e && e.preventDefault();
+          return false;
+        }
+        handleUserMarkerClick(u, e);
+      };
+      img.onclick = (e) => {
+        if (window.__drawdistance_disable_userinfo__) {
+          e && e.stopPropagation();
+          e && e.preventDefault();
+          return false;
+        }
+        handleUserMarkerClick(u, e);
+      };
+      const overlay = new Overlay({
+        element: el,
+        positioning: 'center-center',
+        stopEvent: true,
+        insertFirst: false
+      });
+      overlay.setPosition(coord);
+      olmap.addOverlay(overlay);
+      overlays.push(overlay);
+      // 新增：调试DOM
+      setTimeout(() => {
+        const overlayEl = overlay.getElement();
+        if (overlayEl) {
+          const parent = overlayEl.parentElement;
+          console.debug('[DEBUG] marker DOM parent:', parent, 'display:', parent && parent.style && parent.style.display, overlayEl);
+          // 检查是否被隐藏
+          if (parent && window.getComputedStyle(parent).display === 'none') {
+            console.error('[DEBUG] marker overlay DOM 被隐藏:', overlayEl, parent);
+          }
+        } else {
+          console.error('[DEBUG] marker overlay 没有element:', overlay);
+        }
+      }, 100);
+    });
+
     if (olmap.renderSync) olmap.renderSync();
     if (olmap.updateSize) olmap.updateSize();
-  }, 100);
-  console.log('当前 overlays 数量:', overlays.length, overlays);
+
+    setTimeout(() => {
+      // overlays 只包含用户 marker，不包含实时位置 overlay
+      console.log('当前 overlays 数量:', overlays.length, overlays);
+      // 调试：打印地图上所有 overlays 的元素和 className
+      olmap.getOverlays().getArray().forEach((ov, idx) => {
+        if (ov && ov.getElement) {
+          const el = ov.getElement();
+          console.debug(`[DEBUG] overlay[${idx}] class:`, el && el.className, el);
+        }
+      });
+      // 检查 overlays 是否都在地图上
+      overlays.forEach((ov, idx) => {
+        // 这里的报错其实是因为 overlays 里存的是新建的 Overlay 实例，
+        // 但 olmap.addOverlay 可能会返回一个 Proxy(Overlay)（Vue响应式代理），
+        // 导致 === 判断失败。
+        // 解决方法：用 ov.id 或 ov.getElement() 判断
+        const found = olmap.getOverlays().getArray().find(realOv => realOv.getElement() === ov.getElement());
+        if (!found) {
+          console.error(`[DEBUG] overlays[${idx}] 未被添加到地图(元素也不一致)`, ov);
+        } else {
+          // 说明只是 Proxy 对象引用不一致，不影响显示
+          // 可以注释掉此报错
+        }
+      });
+
+      // ====== 修正 window._olOverlays/window._olMarkers 赋值时机 ======
+      // 必须在 setTimeout 的回调里赋值，确保 overlays 已经渲染
+      window.olmap = olmap;
+      window.nearbyUsers = users;
+      window._olOverlays = olmap.getOverlays().getArray();
+      window._olMarkers = overlays.map(ov => ov.getElement());
+      // 提示可用的调试命令
+      if (!window._olDebugHinted) {
+        window._olDebugHinted = true;
+        setTimeout(() => {
+          // eslint-disable-next-line no-console
+          console.info(
+            '[OL调试] 可在控制台输入：\n' +
+            'window.olmap                // OpenLayers地图实例\n' +
+            'window.nearbyUsers          // 当前附近用户数据\n' +
+            'window._olOverlays          // 当前所有Overlay对象\n' +
+            'window._olMarkers           // 当前所有marker的DOM节点\n' +
+            'window.olmap.getOverlays().getArray() // 地图所有Overlay\n' +
+            'window._olMarkers.forEach(el=>console.log(el, el && el.style && el.style.display)) // 检查所有marker DOM显示状态'
+          );
+        }, 500);
+      }
+      // ====== end ======
+    }, 100);
+  }, 200);
 };
 
 // 搜索附近用户（3km内，带头像）
 const searchNearby = async () => {
   if (!olmap) return;
-  // 修正：每次搜索前清理 overlays，避免叠加
   clearNearbyOverlays();
   errorMsg.value = '正在搜索附近用户...';
+
+  if (olmap.updateSize) olmap.updateSize();
+  if (olmap.renderSync) olmap.renderSync();
+
+  await new Promise(resolve => setTimeout(resolve, 100));
+
   const center = olmap.getView().getCenter();
+  if (!center) {
+    errorMsg.value = '地图尚未初始化，请稍后重试';
+    console.warn('[DEBUG] searchNearby: 地图中心不存在');
+    return;
+  }
   const [centerLng, centerLat] = toLonLat(center, 'EPSG:3857');
   try {
     const res = await axios.get('/api/nearby-users', {
       params: { lng: centerLng, lat: centerLat, radius: 3000 }
     });
+    // 调试：打印后端接口返回的原始数据
+    console.debug('[DEBUG] /api/nearby-users 返回:', res.data);
     nearbyUsers.value = res.data || [];
     errorMsg.value = '';
-    // 自动定位到第一个用户
     if (nearbyUsers.value.length > 0) {
       const first = nearbyUsers.value[0];
       const coord = fromLonLat([Number(first.lng), Number(first.lat)], olmap.getView().getProjection());
       olmap.getView().setCenter(coord);
       olmap.getView().setZoom(18);
+      if (olmap.updateSize) olmap.updateSize();
+      if (olmap.renderSync) olmap.renderSync();
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
-    // 直接渲染所有用户
     renderUserMarkers(nearbyUsers.value);
   } catch (err) {
     console.error('搜索附近用户失败:', err);
