@@ -278,7 +278,21 @@ const renderUserMarkers = (users) => {
     console.warn('olmap 未初始化，无法渲染用户 marker');
     return;
   }
-  // 修正：每次渲染前清理 overlays，避免叠加
+  
+  // 清理现有的所有用户标记
+  const mapContainer = document.getElementById('mapDom');
+  if (mapContainer) {
+    const existingMarkers = mapContainer.querySelectorAll('.user-marker-direct');
+    existingMarkers.forEach(marker => marker.remove());
+  }
+  
+  // 强制清理所有 overlays
+  const allOverlays = olmap.getOverlays().getArray();
+  allOverlays.forEach(ov => {
+    if (ov.getElement() && ov.getElement().classList.contains('user-marker')) {
+      olmap.removeOverlay(ov);
+    }
+  });
   overlays.forEach(ov => {
     if (olmap) olmap.removeOverlay(ov);
   });
@@ -292,19 +306,39 @@ const renderUserMarkers = (users) => {
       console.warn('用户坐标不是数字:', u);
       return;
     }
+    
+    // 直接在地图容器中创建绝对定位的元素
     const el = document.createElement('div');
-    el.className = 'user-marker';
-    // 关键：确保坐标转换为地图当前投影
+    el.className = 'user-marker-direct';
+    el.style.cssText = `
+      position: absolute;
+      z-index: 99999 !important;
+      pointer-events: auto;
+      visibility: visible !important;
+      display: block !important;
+      width: 48px;
+      height: 48px;
+      margin-left: -24px;
+      margin-top: -24px;
+    `;
+    
+    // 计算屏幕像素坐标
     const proj = olmap.getView().getProjection();
     const coord = proj.getCode() === 'EPSG:3857'
       ? fromLonLat([lng, lat], proj)
       : [lng, lat];
-    el.__ol_position = coord;
-    el.dataset.olPosition = JSON.stringify(coord);
+    
+    // 将地图坐标转换为像素坐标
+    const pixel = olmap.getPixelFromCoordinate(coord);
+    if (pixel) {
+      el.style.left = pixel[0] + 'px';
+      el.style.top = pixel[1] + 'px';
+    }
 
     const avatarUrl = u.avatar || defaultAvatar;
     console.log('[renderUserMarkers] 用户:', u.username, '头像:', avatarUrl);
     el.innerHTML = `<img src="${avatarUrl}" style="width:48px;height:48px;border-radius:50%;border:2px solid #409eff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;" title="${u.username}"/>`;
+    
     const img = el.querySelector('img');
     img.onerror = function() {
       if (!this._tried) {
@@ -312,6 +346,7 @@ const renderUserMarkers = (users) => {
         this.src = defaultAvatar;
       }
     };
+    
     let tipDiv = null;
     img.onmouseenter = (e) => {
       img.style.boxShadow = '0 0 16px 6px #409eff, 0 2px 8px rgba(0,0,0,0.18)';
@@ -340,6 +375,7 @@ const renderUserMarkers = (users) => {
         }
       };
     };
+    
     img.onmouseleave = () => {
       img.style.boxShadow = '';
       img.style.borderColor = '#409eff';
@@ -351,6 +387,7 @@ const renderUserMarkers = (users) => {
       }
       img.onmousemove = null;
     };
+    
     el.onclick = (e) => {
       if (window.__drawdistance_disable_userinfo__) {
         e && e.stopPropagation();
@@ -359,6 +396,7 @@ const renderUserMarkers = (users) => {
       }
       handleUserMarkerClick(u, e);
     };
+    
     img.onclick = (e) => {
       if (window.__drawdistance_disable_userinfo__) {
         e && e.stopPropagation();
@@ -367,26 +405,42 @@ const renderUserMarkers = (users) => {
       }
       handleUserMarkerClick(u, e);
     };
-    // 关键：overlay 的 position 必须是地图当前投影坐标
-    const overlay = new Overlay({
-      element: el,
-      positioning: 'center-center',
-      stopEvent: true,
-      insertFirst: false
-    });
-    overlay.setPosition(coord);
-    olmap.addOverlay(overlay);
-    overlays.push(overlay);
+    
+    // 将元素直接添加到地图容器
+    if (mapContainer) {
+      mapContainer.appendChild(el);
+    }
+    
+    // 存储用户数据到元素上，便于后续更新位置
+    el._userData = { lng, lat, coord };
   });
-
-  if (olmap.renderSync) olmap.renderSync();
-  if (olmap.updateSize) olmap.updateSize();
-  // 再次延迟强制刷新，确保异步布局后也能刷新
-  setTimeout(() => {
-    if (olmap.renderSync) olmap.renderSync();
-    if (olmap.updateSize) olmap.updateSize();
-  }, 100);
-  console.log('当前 overlays 数量:', overlays.length, overlays);
+  
+  // 监听地图移动事件，实时更新标记位置
+  const updateMarkerPositions = () => {
+    const markers = mapContainer?.querySelectorAll('.user-marker-direct');
+    markers?.forEach(marker => {
+      if (marker._userData) {
+        const pixel = olmap.getPixelFromCoordinate(marker._userData.coord);
+        if (pixel) {
+          marker.style.left = pixel[0] + 'px';
+          marker.style.top = pixel[1] + 'px';
+        }
+      }
+    });
+  };
+  
+  // 移除旧的监听器
+  if (olmap._userMarkerMoveListener) {
+    olmap.un('moveend', olmap._userMarkerMoveListener);
+    olmap.un('postrender', olmap._userMarkerMoveListener);
+  }
+  
+  // 添加新的监听器
+  olmap._userMarkerMoveListener = updateMarkerPositions;
+  olmap.on('moveend', updateMarkerPositions);
+  olmap.on('postrender', updateMarkerPositions);
+  
+  console.log('当前用户标记数量:', users.length);
 };
 
 // 搜索附近用户（3km内，带头像）
@@ -640,7 +694,7 @@ onMounted(() => {
         // 重新渲染 overlays
         renderUserMarkers(nearbyUsers.value);
       }
-    }, 300); // 延迟，确保底图切换完成
+    }, 500); // 延迟更长，确保底图切换完成
   });
 });
 </script>
@@ -753,11 +807,11 @@ onMounted(() => {
   padding: 0;
   display: block;
   transition: box-shadow 0.2s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  /* box-shadow: 0 2px 8px rgba(0,0,0,0.10); */ /* 注释掉外部边框阴影 */
   border-radius: 50%;
 }
 .locate-btn-wrapper:hover .locate-svg-btn {
-  box-shadow: 0 4px 16px rgba(64,158,255,0.18);
+  /* box-shadow: 0 4px 16px rgba(64,158,255,0.18); */ /* 注释掉悬停时的阴影 */
   background: #f0f7ff;
 }
 .upload-btn {

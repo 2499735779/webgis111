@@ -66,7 +66,7 @@ onMounted(() => {
   padding: 4px 10px;
   min-width: 120px;
   min-height: 32px;
-  background: rgba(255,255,255,0.95);
+  background: rgba(255,255,255,0.6);
   border-radius: 7px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   position: fixed;
