@@ -110,15 +110,64 @@ const startWatchUserPosition = () => {
           if (!userPositionOverlay) {
             const el = document.createElement('div');
             el.className = 'user-location-marker';
-            el.innerHTML = `<span style="display:inline-block;width:18px;height:18px;background:#67c23a;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.18);"></span>`;
+            // 关键：允许鼠标事件穿透到 overlay
+            el.style.pointerEvents = 'auto';
+            // 新增 title 属性和鼠标悬停提示
+            el.innerHTML = `<span 
+              style="display:inline-block;width:18px;height:18px;background:#67c23a;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.18);cursor:pointer;"
+              title="这是您的当前位置"
+            ></span>`;
+            // 鼠标悬停自定义提示
+            el.onmouseenter = (e) => {
+              if (el._tipDiv) return;
+              const tipDiv = document.createElement('div');
+              tipDiv.className = 'user-location-tip';
+              tipDiv.innerText = '这是您的当前位置';
+              tipDiv.style.position = 'fixed';
+              tipDiv.style.left = (e.clientX + 16) + 'px';
+              tipDiv.style.top = (e.clientY + 16) + 'px';
+              tipDiv.style.background = '#67c23a';
+              tipDiv.style.color = '#fff';
+              tipDiv.style.padding = '4px 12px';
+              tipDiv.style.borderRadius = '6px';
+              tipDiv.style.fontSize = '15px';
+              tipDiv.style.zIndex = 30001;
+              tipDiv.style.pointerEvents = 'none';
+              tipDiv.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+              document.body.appendChild(tipDiv);
+              el._tipDiv = tipDiv;
+              el.onmousemove = (ev) => {
+                if (el._tipDiv) {
+                  el._tipDiv.style.left = (ev.clientX + 16) + 'px';
+                  el._tipDiv.style.top = (ev.clientY + 16) + 'px';
+                }
+              };
+            };
+            el.onmouseleave = () => {
+              if (el._tipDiv) {
+                document.body.removeChild(el._tipDiv);
+                el._tipDiv = null;
+              }
+              el.onmousemove = null;
+            };
             userPositionOverlay = new Overlay({
               element: el,
               positioning: 'center-center',
-              stopEvent: false
+              stopEvent: false // 允许事件穿透
             });
             olmap.addOverlay(userPositionOverlay);
+          } else {
+            // 修正：如果 overlay 已存在但被 remove 过，需要重新 add
+            if (!olmap.getOverlays().getArray().includes(userPositionOverlay)) {
+              olmap.addOverlay(userPositionOverlay);
+            }
+            // 保证 pointerEvents 始终为 auto
+            userPositionOverlay.getElement().style.pointerEvents = 'auto';
           }
           userPositionOverlay.setPosition(coord);
+          // 修正：强制刷新地图，避免 overlay 不显示
+          if (olmap.renderSync) olmap.renderSync();
+          if (olmap.updateSize) olmap.updateSize();
         }
       },
       err => {
@@ -406,7 +455,10 @@ onMounted(() => {
         const viewOpts = Object.assign({
           projection: 'EPSG:3857',
           center,
-          zoom: 17.5
+          zoom: 17.5,
+          minZoom: 2,
+          maxZoom: 22, // 不要设置过大，建议22以内
+          constrainResolution: false // 允许任意缩放级别
         }, props.viewConf);
 
         const map = new Map({
@@ -449,7 +501,10 @@ onMounted(() => {
         const viewOpts = Object.assign({
           projection: 'EPSG:3857',
           center: [12758612.973162018, 3562849.0216611675],
-          zoom: 17.5
+          zoom: 17.5,
+          minZoom: 2,
+          maxZoom: 22,
+          constrainResolution: false
         }, props.viewConf);
 
         const map = new Map({
@@ -492,7 +547,10 @@ onMounted(() => {
     const viewOpts = Object.assign({
       projection: 'EPSG:3857',
       center: [12758612.973162018, 3562849.0216611675],
-      zoom: 17.5
+      zoom: 17.5,
+      minZoom: 2,
+      maxZoom: 22,
+      constrainResolution: false
     }, props.viewConf);
 
     const map = new Map({
@@ -724,6 +782,17 @@ html, body, #app {
   position: absolute;
   transform: translate(-50%, -50%);
   z-index: 21000;
+  pointer-events: auto; /* 允许鼠标事件 */
+}
+.user-location-tip {
+  position: fixed;
+  background: #67c23a;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  z-index: 30001;
   pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 </style>

@@ -28,21 +28,10 @@ const debugTileUrl = (url) => {
 };
 
 // 创建各个图层方法
-const createLyrGd = () => {
-  return new TileLayer({
-    properties: {
-      name: 'gaode',
-      title: '高德地图',
-    },
-    visible: false,
-    source: new XYZ({
-      url: 'http://webrd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scl=1&style=8&lstyle=7&x={x}&y={y}&z={z}',
-    })
-  });
-};
-
 const createLyrTian = () => {
   const key = '569737ea36171685d686b54ce079a49d';
+  // 天地图最大支持18级，手动指定maxZoom
+  const maxZoom = 18;
   // 矢量底图
   const vecUrl = `http://t{0-7}.tianditu.gov.cn/vec_c/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=c&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${key}`;
   // 文字注记图层
@@ -62,6 +51,7 @@ const createLyrTian = () => {
       source: new XYZ({
         projection: 'EPSG:4326',
         url: vecUrl,
+        maxZoom // 指定最大缩放级别
       })
     }),
     new TileLayer({
@@ -74,12 +64,60 @@ const createLyrTian = () => {
       source: new XYZ({
         projection: 'EPSG:4326',
         url: cvaUrl,
+        maxZoom
       })
     })
   ];
 };
 
+const createLyrGd = () => {
+  // 高德最大支持18级
+  return new TileLayer({
+    properties: {
+      name: 'gaode',
+      title: '高德地图',
+    },
+    visible: false,
+    source: new XYZ({
+      url: 'http://webrd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scl=1&style=8&lstyle=7&x={x}&y={y}&z={z}',
+      maxZoom: 18
+    })
+  });
+};
+
+const createLyrOSM = () => {
+  // OSM最大支持19级
+  return new TileLayer({
+    properties: {
+      name: 'osm',
+      title: 'OpenStreetMap',
+    },
+    visible: false,
+    source: new OSM({
+      maxZoom: 19
+    })
+  });
+};
+
+const createLyrArc = () => {
+  // ArcGIS最大支持19级
+  return new TileLayer({
+    properties: {
+      name: 'arc',
+      title: 'Arcgis地图',
+    },
+    visible: false,
+    source: new XYZ({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      projection: 'EPSG:3857',
+      maxZoom: 19
+    })
+  });
+};
+
+// 修正 createLyrBd 语法错误，去掉 TileImage 外多余的括号
 const createLyrBd = () => {
+  // 百度最大支持18级
   let url = 'http://online{0-3}.map.bdimg.com/onlinelabel/?qt=tile&x={x}&y={y}&z={z}&styles=pl&udt=20191119&scaler=1&p=1';
   debugTileUrl(url);
   const resolutions = [];
@@ -113,27 +151,14 @@ const createLyrBd = () => {
         }
         return tempUrl;
       }
-    })
-  });
-};
-
-const createLyrOSM = () => {
-  const url = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-  debugTileUrl(url);
-  return new TileLayer({
-    properties: {
-      name: 'osm',
-      title: 'OpenStreetMap',
-    },
-    visible: false,
-    source: new OSM()
+    }),
+    maxZoom: 18
   });
 };
 
 const createLyrBing = () => {
-  const key = 'AvehefmVM_surC2UyDjyO2T_EvSgRUA9Te3_9D_sj88ZYEBNNWxaufCSPGzecf-B';
-  const url = `https://dev.virtualearth.net/REST/v1/Imagery/Map/Road/{z}/{x}/{y}?key=${key}`;
-  debugTileUrl(url);
+  // 你的key, 如AvehefmVM_surC2UyDjyO2T_EvSgRUA9Te3_9D_xxxxxxx
+  const key = 'AvehefmVM_surC2UyDjyO2T_EvSgRUA9Te3_9D_sj88ZYEBNNWxaufCSPGzecf-B'
   return new TileLayer({
     properties: {
       name: 'bing',
@@ -143,22 +168,6 @@ const createLyrBing = () => {
     source: new BingMaps({
       key: key,
       imagerySet: 'RoadOnDemand'
-    })
-  });
-};
-
-const createLyrArc = () => {
-  const url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-  debugTileUrl(url);
-  return new TileLayer({
-    properties: {
-      name: 'arc',
-      title: 'Arcgis地图',
-    },
-    visible: false,
-    source: new XYZ({
-      url,
-      projection: 'EPSG:3857'
     })
   });
 };
