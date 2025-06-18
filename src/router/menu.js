@@ -15,5 +15,6 @@ export default [
     { path: 'DrawPolygon', name: 'DrawPolygon', component: () => import('../views/graDraw/DrawPolygon.vue') },
     { path: 'Drawdistance', name: 'Drawdistance', component: () => import('../views/graDraw/Drawdistance.vue') },
     { path: 'UserLogin', name: 'UserLogin', component: () => import('../views/UserLogin.vue') },
+    { path: 'UserRegister', name: 'UserRegister', component: () => import('../views/UserRegister.vue') },
     { path: 'Message', name: 'Message', component: () => import('../views/layout/message.vue') }
 ];

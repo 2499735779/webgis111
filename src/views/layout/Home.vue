@@ -211,7 +211,9 @@ const isRejected = computed(() =>
 );
 
 const isLoginPage = computed(() => route.name === 'UserLogin');
-const hideSwitchPanel = computed(() => isLoginPage.value || showUserInfo.value || globalDialogVisible.value);
+// 修改这里，注册页也隐藏右下角控件
+const isRegisterPage = computed(() => route.name === 'UserRegister');
+const hideSwitchPanel = computed(() => isLoginPage.value || isRegisterPage.value || showUserInfo.value || globalDialogVisible.value);
 
 // 打开好友列表方法，兼容PC和移动端
 const showFriendList = () => {

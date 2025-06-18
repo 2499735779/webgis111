@@ -88,21 +88,24 @@ client.connect().then(async () => {
     return result;
   };
 
-  // 用户注册
+  // 用户注册 - 修改用户名验证规则
   app.post('/api/user-register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password)
       return res.json({ success: false, message: '账号和密码不能为空' });
 
-    // 检查用户名格式（1-10个汉字）
-    const chineseReg = /^[\u4e00-\u9fa5]{1,10}$/;
-    if (!chineseReg.test(username)) {
-      return res.json({ success: false, message: '用户名需为1-10个汉字' });
+    // 修改用户名格式验证（允许汉字、字母、数字，3-20个字符）
+    if (username.length < 3 || username.length > 20) {
+      return res.json({ success: false, message: '用户名长度为3-20个字符' });
+    }
+    
+    if (!/^[\u4e00-\u9fa5a-zA-Z0-9]+$/.test(username)) {
+      return res.json({ success: false, message: '用户名只能包含汉字、字母、数字' });
     }
 
     const userCol = db.collection('users');
     const exist = await userCol.findOne({ username });
-    if (exist) return res.json({ success: false, message: '账号已存在' });
+    if (exist) return res.json({ success: false, message: '注册失败！账号已存在' });
     await userCol.insertOne({ username, password });
     res.json({ success: true });
   });

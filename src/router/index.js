@@ -28,8 +28,10 @@ const router = createRouter({
 // 路由守卫：未登录跳转到登录页，已登录访问登录页自动跳转首页
 router.beforeEach((to, from, next) => {
     const user = localStorage.getItem('user');
-    if (to.name === 'UserLogin') {
-        // 已登录访问登录页，自动跳转首页
+    
+    // 登录页和注册页的处理
+    if (to.name === 'UserLogin' || to.name === 'UserRegister') {
+        // 已登录访问登录/注册页，自动跳转首页
         if (user) {
             next({ name: 'Map' });
         } else {
@@ -37,6 +39,7 @@ router.beforeEach((to, from, next) => {
         }
         return;
     }
+    
     // 其它页面未登录跳转到登录页
     if (!user) {
         next({ name: 'UserLogin' });
