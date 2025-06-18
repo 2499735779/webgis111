@@ -18,13 +18,20 @@
               {{ loading ? '登录中...' : '登录' }}
             </el-button>
           </el-form-item>
-          <el-form-item v-if="msg">
+          <!-- 删除原有的表单内提示 -->
+          <!-- <el-form-item v-if="msg">
             <span :class="['msg', { 'success': isSuccess }]">{{ msg }}</span>
-          </el-form-item>
+          </el-form-item> -->
           <div class="register-link">
             未注册账号？<el-button type="text" @click="goToRegister">点击注册</el-button>
           </div>
         </el-form>
+        <!-- 顶部浮动提示 -->
+        <transition name="fade">
+          <div v-if="showTopMsg" :class="['login-top-msg', { success: isSuccess }]">
+            {{ msg }}
+          </div>
+        </transition>
       </div>
       <!-- 游戏手柄装饰元素 -->
       <div class="gamepad-decorations">
@@ -61,6 +68,10 @@ const isSuccess = ref(false)
 const loading = ref(false)
 const formRef = ref()
 
+// 顶部浮动提示控制
+const showTopMsg = ref(false)
+let topMsgTimer = null
+
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
@@ -87,22 +98,23 @@ const handleLogin = async () => {
     if (!valid) {
       return
     }
-    
     loading.value = true
     msg.value = ''
     isSuccess.value = false
-    
     try {
       const res = await axios.post('/api/user-login', {
         username: form.value.username,
         password: form.value.password,
       })
-      
       if (res.data.success) {
         msg.value = '登录成功'
         isSuccess.value = true
+        showTopMsg.value = true
+        clearTimeout(topMsgTimer)
+        topMsgTimer = setTimeout(() => {
+          showTopMsg.value = false
+        }, 2000)
         localStorage.setItem('user', JSON.stringify(res.data.user))
-        
         setTimeout(() => {
           router.push({ name: 'Map' }).then(() => {
             window.location.reload()
@@ -111,11 +123,21 @@ const handleLogin = async () => {
       } else {
         msg.value = res.data.message || '用户名或密码错误'
         isSuccess.value = false
+        showTopMsg.value = true
+        clearTimeout(topMsgTimer)
+        topMsgTimer = setTimeout(() => {
+          showTopMsg.value = false
+        }, 2000)
       }
     } catch (e) {
       console.error("登录请求发生错误：", e)
       msg.value = e.response?.data?.message || '网络错误，请稍后重试'
       isSuccess.value = false
+      showTopMsg.value = true
+      clearTimeout(topMsgTimer)
+      topMsgTimer = setTimeout(() => {
+        showTopMsg.value = false
+      }, 2000)
     } finally {
       loading.value = false
     }
@@ -491,6 +513,38 @@ const goToRegister = () => {
   background: linear-gradient(45deg, #45a049, #4CAF50);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}
+
+/* 顶部浮动提示样式（与注册界面一致，位置向下） */
+.login-top-msg {
+  position: fixed;
+  left: 50%;
+  top: 760px; /* 向下移动，原来是60px */
+  transform: translateX(-50%);
+  z-index: 40000;
+  background: rgba(255,255,255,0.98);
+  color: #f56c6c;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 12px 32px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  min-width: 180px;
+  text-align: center;
+  pointer-events: none;
+  transition: all 0.3s;
+}
+.login-top-msg.success {
+  color: #67c23a;
+}
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+.fade-enter-to, .fade-leave-from {
+  opacity: 1;
 }
 
 /* 响应式设计 */
