@@ -178,7 +178,8 @@ const goToLogin = () => {
   bottom: 0;
   width: 100%;
   height: 100%;
-  background: url('./background.png') center center/cover no-repeat;
+  /* 重点：这里的图片路径 */
+  background: url('/background.png') center center/cover no-repeat;
   /* 若图片在 public 目录下用 /background.png */
   /* background: url('/background.png') center center/cover no-repeat; */
   box-shadow: 
