@@ -214,20 +214,31 @@ client.connect().then(async () => {
   });
 
   // 发送消息接口（普通消息或好友请求）
+  // 需要为每条消息存储两份(owner: from 和 owner: to)，以便各自独立删除
   app.post('/api/messages', async (req, res) => {
     const { from, to, content, type } = req.body;
     if (!from || !to || !content)
       return res.json({ success: false, message: '参数缺失' });
-    const msg = {
+    const msgFrom = {
       from,
       to,
       content,
       type: type || 'chat',
       read: false,
-      createdAt: new Date()
+      createdAt: new Date(),
+      owner: from
     };
-    await db.collection('messages').insertOne(msg);
-    io.to(to).emit('chat-message', msg);
+    const msgTo = {
+      from,
+      to,
+      content,
+      type: type || 'chat',
+      read: false,
+      createdAt: new Date(),
+      owner: to
+    };
+    await db.collection('messages').insertMany([msgFrom, msgTo]);
+    io.to(to).emit('chat-message', msgTo);
     // 计算最新的未读消息状态并推送给目标用户
     const updatedUnreadMap = await computeUnreadMapForUser(to);
     io.to(to).emit('unread-updated', updatedUnreadMap);
@@ -235,6 +246,7 @@ client.connect().then(async () => {
   });
 
   // 获取与某好友的消息（含好友请求）
+  // 只返回 owner=user1 的消息
   app.get('/api/messages', async (req, res) => {
     const { user1, user2 } = req.query;
     if (!user1 || !user2) return res.json([]);
@@ -242,11 +254,12 @@ client.connect().then(async () => {
       $or: [
         { from: user1, to: user2 },
         { from: user2, to: user1 }
-      ]
+      ],
+      owner: user1
     }).sort({ createdAt: 1 }).toArray();
     // 标记为已读
     await db.collection('messages').updateMany(
-      { to: user1, from: user2, read: false },
+      { to: user1, from: user2, read: false, owner: user1 },
       { $set: { read: true } }
     );
     res.json(msgs);
@@ -337,6 +350,9 @@ client.connect().then(async () => {
       // 双向添加好友
       await userCol.updateOne({ username }, { $addToSet: { friends: from } });
       await userCol.updateOne({ username: from }, { $addToSet: { friends: username } });
+      // 新增：通知双方好友列表更新
+      io.to(username).emit('friend-list-updated');
+      io.to(from).emit('friend-list-updated');
     }
     // 删除所有该好友请求记录
     await db.collection('messages').deleteMany({
@@ -351,16 +367,13 @@ client.connect().then(async () => {
   app.post('/api/clear-chat-history', async (req, res) => {
     const { user1, user2 } = req.body;
     if (!user1 || !user2) return res.json({ success: false, message: '参数缺失' });
-    // 只删除 user1 作为 from 或 to 的消息（不影响 user2 看到的消息）
+    // 只删除 user1 作为 owner 的消息（即 user1 看到的消息）
     await db.collection('messages').deleteMany({
       $or: [
         { from: user1, to: user2 },
         { from: user2, to: user1 }
       ],
-      $or: [
-        { from: user1 },
-        { to: user1 }
-      ]
+      owner: user1
     });
     res.json({ success: true });
   });
