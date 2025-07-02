@@ -386,11 +386,16 @@ onMounted(async () => {
   });
   socket.value.on('pending-requests-updated', (data) => {
     console.log("收到新的好友请求", data);
-    // 这里可以直接更新 friendRequests，也可以调用 fetchFriendRequests() 再次获取数据
     fetchFriendRequests();
   });
   socket.value.on('friend-list-updated', () => {
     console.log("收到好友列表更新");
+    fetchFriends();
+  });
+
+  // 新增：监听被删除好友通知
+  socket.value.on('friend-removed-notice', (data) => {
+    window.ElMessage && window.ElMessage.warning(`你已被 ${data.from} 移除好友`);
     fetchFriends();
   });
 });

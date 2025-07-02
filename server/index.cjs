@@ -388,6 +388,9 @@ client.connect().then(async () => {
     await userCol.updateOne({ username: user2 }, { $pull: { friends: user1 } });
     // 通知对方
     io.to(user2).emit('friend-removed-notice', { from: user1 });
+    // 新增：通知双方好友列表更新
+    io.to(user1).emit('friend-list-updated');
+    io.to(user2).emit('friend-list-updated');
     res.json({ success: true });
   });
 
