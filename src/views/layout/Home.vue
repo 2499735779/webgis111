@@ -253,6 +253,11 @@ function onUserAvatarClick() {
     showUserInfo.value = true;
   }
 }
+
+// 新增：好友菜单是否展开
+const friendMenuVisible = computed(() => {
+  return !!(friendMenuRef.value && friendMenuRef.value.showFriendList);
+});
 </script>
 
 <template>
@@ -264,6 +269,8 @@ function onUserAvatarClick() {
       @touchstart="handleFriendTip"
       @click="handleFriendTip"
       title="点击或触摸打开好友列表"
+      :class="{ 'friend-tip-disabled': friendMenuVisible }"
+      :style="{ pointerEvents: friendMenuVisible ? 'none' : 'auto', opacity: friendMenuVisible ? 0.5 : 1 }"
     >
       <div class="friend-tip-arrow-content">
         <svg class="friend-tip-arrow" width="24" height="48" viewBox="0 0 24 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -506,6 +513,11 @@ function onUserAvatarClick() {
   box-shadow: 0 0 4px #f56c6c;
   z-index: 2;
   pointer-events: none;
+}
+.friend-tip-vertical-trapezoid.friend-tip-disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  filter: grayscale(0.6);
 }
 @media (max-width: 600px) {
   .friend-tip-vertical-trapezoid {
