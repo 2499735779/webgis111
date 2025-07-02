@@ -65,6 +65,12 @@ io.on('connection', (socket) => {
     }
   });
   
+  // 新增：删除好友后通知对方
+  socket.on('friend-removed', ({ from, to }) => {
+    // 通知对方好友关系被解除
+    io.to(to).emit('friend-removed-notice', { from });
+  });
+
   socket.on('disconnect', () => {
     console.log("Client disconnected:", socket.id);
   });
@@ -339,6 +345,37 @@ client.connect().then(async () => {
     res.json({ success: true });
     io.to(username).emit('pending-requests-updated');
     io.to(from).emit('pending-requests-updated');
+  });
+
+  // 新增：清空聊天记录，仅删除 user1 看到的与 user2 的消息
+  app.post('/api/clear-chat-history', async (req, res) => {
+    const { user1, user2 } = req.body;
+    if (!user1 || !user2) return res.json({ success: false, message: '参数缺失' });
+    // 只删除 user1 作为 from 或 to 的消息（不影响 user2 看到的消息）
+    await db.collection('messages').deleteMany({
+      $or: [
+        { from: user1, to: user2 },
+        { from: user2, to: user1 }
+      ],
+      $or: [
+        { from: user1 },
+        { to: user1 }
+      ]
+    });
+    res.json({ success: true });
+  });
+
+  // 新增：删除好友，双方解除好友关系，并通知对方
+  app.post('/api/delete-friend', async (req, res) => {
+    const { user1, user2 } = req.body;
+    if (!user1 || !user2) return res.json({ success: false, message: '参数缺失' });
+    const userCol = db.collection('users');
+    // 双方都移除对方
+    await userCol.updateOne({ username: user1 }, { $pull: { friends: user2 } });
+    await userCol.updateOne({ username: user2 }, { $pull: { friends: user1 } });
+    // 通知对方
+    io.to(user2).emit('friend-removed-notice', { from: user1 });
+    res.json({ success: true });
   });
 
   // 启动 HTTPS 服务，监听 443 端口

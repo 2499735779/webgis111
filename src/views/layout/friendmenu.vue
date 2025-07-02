@@ -5,7 +5,12 @@
     @mouseenter="handleFriendListEnter"
     @mouseleave="handleFriendListLeave"
   >
-    <div class="friend-list-title">好友列表</div>
+    <div class="friend-list-title">
+      好友列表
+      <el-button class="add-friend-btn" type="primary" circle size="small" @click.stop="showAddFriendDialog = true" title="添加好友">
+        <span style="font-size:20px;">+</span>
+      </el-button>
+    </div>
     <el-scrollbar style="height:calc(100vh - 60px);">
       <el-skeleton v-if="loadingFriends" :rows="6" animated />
       <div v-else>
@@ -28,6 +33,8 @@
           :key="f.username"
           class="friend-list-item"
           @click="handleFriendClick(f)"
+          @contextmenu.prevent.stop="onFriendContextMenu($event, f)"
+          ref="friendItemRefs"
         >
           <el-avatar :size="36" :src="f.avatar || defaultAvatar" />
           <span class="friend-list-name">{{ f.username }}</span>
@@ -39,16 +46,77 @@
         </div>
       </div>
     </el-scrollbar>
+    <!-- 修改：添加好友弹窗放大并居中，搜索结果横向排列 -->
+    <el-dialog
+      v-model="showAddFriendDialog"
+      title="添加好友"
+      width="420px"
+      append-to-body
+      align-center
+      class="add-friend-dialog-center"
+      :modal="true"
+      :close-on-click-modal="true"
+    >
+      <!-- 新增：整体居中 -->
+      <div class="add-friend-dialog-center-content">
+        <el-input
+          v-model="searchName"
+          placeholder="输入用户名搜索"
+          clearable
+          @keyup.enter="searchUser"
+          style="margin-bottom: 16px;"
+        />
+        <el-button type="primary" @click="searchUser" style="margin-bottom: 18px;">搜索</el-button>
+        <div v-if="searchResult !== null">
+          <div v-if="searchResult && searchResult.username" class="search-user-row">
+            <el-avatar :size="48" :src="searchResult.avatar || defaultAvatar" />
+            <span class="search-user-name">{{ searchResult.username }}</span>
+            <el-button
+              type="success"
+              size="small"
+              class="search-user-add-btn"
+              :disabled="searchResult.username === user.username || isFriend(searchResult.username) || isPending(searchResult.username)"
+              @click="addFriendBySearch(searchResult.username)"
+            >
+              <template v-if="searchResult.username === user.username">自己</template>
+              <template v-else-if="isFriend(searchResult.username)">已是好友</template>
+              <template v-else-if="isPending(searchResult.username)">已发送请求</template>
+              <template v-else>添加</template>
+            </el-button>
+          </div>
+          <div v-else style="color:#f56c6c;text-align:center;">未找到该用户</div>
+        </div>
+      </div>
+    </el-dialog>
+    <!-- 全局右键菜单 popover，只渲染一次 -->
+    <el-popover
+      v-if="contextMenu.visible && contextMenu.friend"
+      :visible="contextMenu.visible"
+      :virtual-ref="contextMenu.virtualRef"
+      virtual-triggering
+      placement="bottom-start"
+      width="160"
+      @after-leave="onContextMenuAfterLeave"
+      append-to-body
+      popper-class="friend-context-popover"
+    >
+      <div class="context-menu-list">
+        <div class="context-menu-item" @click="clearChatHistory(contextMenu.friend)">清空聊天记录</div>
+        <div class="context-menu-item context-menu-item-danger" @click="deleteFriend(contextMenu.friend)">删除好友</div>
+        <div class="context-menu-item context-menu-item-cancel" @click="closeContextMenu">取消</div>
+      </div>
+    </el-popover>
   </div>
   <div class="friend-list-hover-area" @mouseenter="handleFriendListEnter"></div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, defineExpose } from 'vue'
+import { ref, onMounted, onBeforeUnmount, defineExpose, nextTick, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useSocket } from '@/utils/usesocket'  // 请确保此模块已创建
 
-const defaultAvatar = 'https://cdn.jsdelivr.net/gh/xiangyuecn/avatardata@main/blank-avatar.png';
+// 修改：默认头像使用本地 public 目录下的 blank-avatar.png
+const defaultAvatar = '/blank-avatar.png';
 const showFriendList = ref(false);
 const friends = ref([]);
 const loadingFriends = ref(false);
@@ -56,6 +124,7 @@ const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
 const emit = defineEmits(['open-chat']);
 const unreadMap = ref({});
 const friendRequests = ref([]);
+const friendItemRefs = ref([]);
 
 // 原有的请求函数保持不变
 const fetchFriends = async () => {
@@ -128,7 +197,10 @@ const handleFriendListEnter = () => {
 };
 
 const handleFriendListLeave = () => {
-  showFriendList.value = false;
+  // 只有未锁定时才允许关闭好友列表
+  if (!contextMenuLock.value) {
+    showFriendList.value = false;
+  }
 };
 
 const handleFriendClick = (f) => {
@@ -141,12 +213,161 @@ const handleFriendClick = (f) => {
   unreadMap.value[f.username] = 0;
 };
 
+// 新增：添加好友弹窗相关
+const showAddFriendDialog = ref(false)
+const searchName = ref('')
+const searchResult = ref(null)
+const pendingFriendRequests = ref([]) // 用于判断是否已发送请求
+
+// 判断是否已是好友
+function isFriend(username) {
+  return friends.value.some(f => (typeof f === 'string' ? f : f.username) === username)
+}
+// 判断是否已发送请求
+function isPending(username) {
+  return pendingFriendRequests.value.includes(username)
+}
+
+// 搜索用户
+const searchUser = async () => {
+  searchResult.value = null
+  if (!searchName.value) return
+  // 查询后端数据库
+  const res = await axios.post('/api/user-info-batch', { usernames: [searchName.value] })
+  if (Array.isArray(res.data) && res.data.length > 0) {
+    // 设置默认头像
+    const userObj = res.data[0]
+    if (!userObj.avatar) userObj.avatar = defaultAvatar
+    searchResult.value = userObj
+  } else {
+    searchResult.value = {}
+  }
+}
+
+// 添加好友（通过搜索结果）
+const addFriendBySearch = async (toUsername) => {
+  if (!user.value.username || !toUsername) return
+  await sendFriendRequest(toUsername)
+  pendingFriendRequests.value.push(toUsername)
+}
+
+// 获取自己发出的未处理好友请求
+const fetchPendingFriendRequests = async () => {
+  if (!user.value.username) return
+  const res = await axios.get('/api/pending-friend-requests', {
+    params: { username: user.value.username }
+  })
+  pendingFriendRequests.value = res.data || []
+}
+
+// 右键菜单状态
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  friend: null,
+  virtualRef: null
+});
+
+// 锁定好友列表弹窗
+const contextMenuLock = ref(false);
+
+// 右键事件
+function onFriendContextMenu(e, friend) {
+  // 锁定好友列表弹窗
+  contextMenuLock.value = true;
+  contextMenu.value.visible = false;
+  contextMenu.value.friend = null;
+  contextMenu.value.virtualRef = null;
+  nextTick(() => {
+    contextMenu.value.friend = friend;
+    contextMenu.value.virtualRef = {
+      getBoundingClientRect: () => ({
+        width: 0,
+        height: 0,
+        top: e.clientY,
+        left: e.clientX,
+        right: e.clientX,
+        bottom: e.clientY
+      }),
+      clientWidth: 0,
+      clientHeight: 0
+    };
+    nextTick(() => {
+      contextMenu.value.visible = true;
+      // 添加全局点击监听，点击空白处关闭菜单
+      document.addEventListener('mousedown', onGlobalClick, true);
+    });
+  });
+}
+
+// 关闭右键菜单
+function closeContextMenu() {
+  contextMenu.value.visible = false;
+  contextMenu.value.friend = null;
+  contextMenu.value.virtualRef = null;
+  // 解除锁定
+  contextMenuLock.value = false;
+  document.removeEventListener('mousedown', onGlobalClick, true);
+}
+
+// 右键菜单关闭后回调
+function onContextMenuAfterLeave() {
+  // 解除锁定
+  contextMenuLock.value = false;
+  document.removeEventListener('mousedown', onGlobalClick, true);
+}
+
+// 全局点击关闭右键菜单（只要不是在菜单内点击）
+function onGlobalClick(e) {
+  // 判断点击是否在弹窗内
+  const popover = document.querySelector('.friend-context-popover');
+  if (popover && popover.contains(e.target)) return;
+  closeContextMenu();
+}
+
+// 清空聊天记录
+async function clearChatHistory(friend) {
+  contextMenu.value.visible = false;
+  contextMenuLock.value = false;
+  document.removeEventListener('mousedown', onGlobalClick, true);
+  if (!user.value.username || !friend?.username) return;
+  await axios.post('/api/clear-chat-history', {
+    user1: user.value.username,
+    user2: friend.username
+  });
+  window.ElMessage && window.ElMessage.success('聊天记录已清空');
+}
+
+// 删除好友
+async function deleteFriend(friend) {
+  contextMenu.value.visible = false;
+  contextMenuLock.value = false;
+  document.removeEventListener('mousedown', onGlobalClick, true);
+  if (!user.value.username || !friend?.username) return;
+  await axios.post('/api/delete-friend', {
+    user1: user.value.username,
+    user2: friend.username
+  });
+  window.ElMessage && window.ElMessage.success('好友已删除');
+  await fetchFriends();
+  if (window.friendMenuRef?.value?.fetchFriends) {
+    window.friendMenuRef.value.fetchFriends();
+  }
+}
+
+// 组件卸载时移除全局事件监听
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onGlobalClick, true);
+});
+
 onMounted(async () => {
   console.log('FriendMenu.vue onMounted');
   // 初次加载数据
   await fetchFriends();
   await fetchUnread();
   await fetchFriendRequests();
+  await fetchPendingFriendRequests()
 
   // 不再使用轮询（已删除如下代码）：
   // unreadTimer = setInterval(fetchUnread, 1000)
@@ -216,6 +437,21 @@ defineExpose({
   padding: 18px 0 12px 24px;
   border-bottom: 1px solid #f0f0f0;
   background: #f8f8f8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.add-friend-btn {
+  margin-left: auto;
+  margin-right: 16px;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .friend-list-empty {
   color: #aaa;
@@ -319,5 +555,95 @@ defineExpose({
   height: 14px;
   background: url('data:image/svg+xml;utf8,<svg fill="white" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M195.2 195.2a32 32 0 0 1 45.248 0L512 466.752l271.552-271.552a32 32 0 1 1 45.248 45.248L557.248 512l271.552 271.552a32 32 0 1 1-45.248 45.248L512 557.248l-271.552 271.552a32 32 0 1 1-45.248-45.248L466.752 512 195.2 240.448a32 32 0 0 1 0-45.248z"/></svg>') no-repeat center center;
   background-size: 14px 14px;
+}
+
+/* 新增：添加好友弹窗居中放大 */
+.add-friend-dialog-center :deep(.el-dialog) {
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  min-width: 420px;
+  max-width: 90vw;
+}
+.add-friend-dialog-center :deep(.el-dialog__body) {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+/* 新增：搜索结果横向排列并居中对齐 */
+.search-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 10px;
+  margin-bottom: 8px;
+}
+.search-user-name {
+  font-size: 18px;
+  font-weight: 500;
+  color: #333;
+  margin-left: 6px;
+  margin-right: 6px;
+  min-width: 80px;
+  text-align: left;
+  display: inline-block;
+}
+.search-user-add-btn {
+  margin-left: 8px;
+  min-width: 80px;
+}
+
+/* 新增：添加好友弹窗内容整体居中 */
+.add-friend-dialog-center-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 右键菜单样式微调 */
+:deep(.el-dropdown-menu) {
+  min-width: 120px;
+}
+
+/* 右键菜单样式 */
+.context-menu-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  padding: 4px 0;
+  font-size: 15px;
+}
+.context-menu-item {
+  padding: 8px 18px;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.15s;
+  user-select: none;
+  text-align: center; /* 新增：文本居中 */
+}
+.context-menu-item:hover {
+  background: #f5f7fa;
+}
+.context-menu-item-danger {
+  color: #f56c6c;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 2px;
+}
+.context-menu-item-cancel {
+  color: #888;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 2px;
+  text-align: center;
+}
+.friend-context-popover {
+  padding: 0 !important;
+  min-width: 120px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+  border-radius: 6px !important;
 }
 </style>

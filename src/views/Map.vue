@@ -274,16 +274,16 @@ let pendingUsers = [];         // 待渲染的用户
 let renderTimer = null;
 
 const renderUserMarkers = (users) => {
-  if (!olmap) {
-    console.warn('olmap 未初始化，无法渲染用户 marker');
-    return;
-  }
-  
-  // 清理现有的所有用户标记
+  if (!olmap) return;
+  // 只操作你自己用 JS 创建的 marker，不要删除 Vue 组件渲染的 DOM
   const mapContainer = document.getElementById('mapDom');
   if (mapContainer) {
+    // 只删除你自己 appendChild 的 .user-marker-direct
     const existingMarkers = mapContainer.querySelectorAll('.user-marker-direct');
-    existingMarkers.forEach(marker => marker.remove());
+    existingMarkers.forEach(marker => {
+      // 检查 marker 是否还在 DOM 中再删除
+      if (marker.parentNode) marker.parentNode.removeChild(marker);
+    });
   }
   
   // 强制清理所有 overlays
