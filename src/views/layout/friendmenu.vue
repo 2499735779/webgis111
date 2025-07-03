@@ -125,12 +125,13 @@ const emit = defineEmits(['open-chat']);
 const unreadMap = ref({});
 const friendRequests = ref([]);
 const friendItemRefs = ref([]);
+const backendOrigin = 'https://kexiaohua.online'; // 后端部署域名
 
-// 工具函数：补全头像URL为绝对路径
+// 工具函数：补全头像URL为后端绝对路径
 function fixAvatarUrl(avatar) {
   if (!avatar) return defaultAvatar;
   if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
-  if (avatar.startsWith('/avatars/')) return window.location.origin + avatar;
+  if (avatar.startsWith('/avatars/')) return backendOrigin + avatar;
   return avatar;
 }
 
@@ -148,7 +149,7 @@ const fetchFriends = async () => {
       const res2 = await axios.post('/api/user-info-batch', {
         usernames: friendNames
       });
-      // 修正：补全头像URL为绝对路径
+      // 修正：补全头像URL为后端绝对路径（优先缩略图）
       friends.value = (res2.data || []).map(u => ({
         username: u.username,
         avatar: fixAvatarUrl(u.avatar)
@@ -170,7 +171,7 @@ const fetchFriendRequests = async () => {
   const res = await axios.get('/api/received-friend-requests', {
     params: { username: user.value.username }
   });
-  // 修正：补全头像URL为绝对路径
+  // 修正：补全头像URL为后端绝对路径
   friendRequests.value = (res.data || []).map(req => ({
     ...req,
     avatar: fixAvatarUrl(req.avatar)
@@ -252,7 +253,7 @@ const searchUser = async () => {
   // 查询后端数据库
   const res = await axios.post('/api/user-info-batch', { usernames: [searchName.value] })
   if (Array.isArray(res.data) && res.data.length > 0) {
-    // 修正：补全头像URL为绝对路径
+    // 修正：补全头像URL为后端绝对路径
     const userObj = res.data[0]
     userObj.avatar = fixAvatarUrl(userObj.avatar)
     searchResult.value = userObj
