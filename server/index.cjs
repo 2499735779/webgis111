@@ -242,6 +242,8 @@ client.connect().then(async () => {
     // 计算最新的未读消息状态并推送给目标用户
     const updatedUnreadMap = await computeUnreadMapForUser(to);
     io.to(to).emit('unread-updated', updatedUnreadMap);
+    // 新增：插入好友列表变化事件
+    await pushFriendListChanged(to);
     res.json({ success: true });
   });
 
@@ -297,6 +299,8 @@ client.connect().then(async () => {
     });
     res.json({ success: true });
     io.to(to).emit('pending-requests-updated');
+    // 新增：插入好友列表变化事件
+    await pushFriendListChanged(to);
   });
 
   // 获取自己发出的未处理好友请求
@@ -350,9 +354,12 @@ client.connect().then(async () => {
       // 双向添加好友
       await userCol.updateOne({ username }, { $addToSet: { friends: from } });
       await userCol.updateOne({ username: from }, { $addToSet: { friends: username } });
-      // 新增：通知双方好友列表更新
+      // 通知双方好友列表更新
       io.to(username).emit('friend-list-updated');
       io.to(from).emit('friend-list-updated');
+      // 新增：插入好友列表变化事件
+      await pushFriendListChanged(username);
+      await pushFriendListChanged(from);
     }
     // 删除所有该好友请求记录
     await db.collection('messages').deleteMany({
@@ -388,9 +395,47 @@ client.connect().then(async () => {
     await userCol.updateOne({ username: user2 }, { $pull: { friends: user1 } });
     // 通知对方
     io.to(user2).emit('friend-removed-notice', { from: user1 });
-    // 新增：通知双方好友列表更新
+    // 通知双方好友列表更新
     io.to(user1).emit('friend-list-updated');
     io.to(user2).emit('friend-list-updated');
+    // 新增：插入好友列表变化事件
+    await pushFriendListChanged(user1);
+    await pushFriendListChanged(user2);
+    res.json({ success: true });
+  });
+
+  // 新增：插入好友列表变化事件
+  async function pushFriendListChanged(username) {
+    if (!username) return;
+    await db.collection('user_events').insertOne({
+      username,
+      type: 'friend-list-changed',
+      read: false,
+      createdAt: new Date()
+    });
+    io.to(username).emit('friend-list-changed');
+  }
+
+  // 获取未读好友列表变化事件数
+  app.get('/api/friend-list-events', async (req, res) => {
+    const { username } = req.query;
+    if (!username) return res.json({ unread: 0 });
+    const count = await db.collection('user_events').countDocuments({
+      username,
+      type: 'friend-list-changed',
+      read: false
+    });
+    res.json({ unread: count });
+  });
+
+  // 标记所有好友列表变化事件为已读
+  app.post('/api/friend-list-events/read', async (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.json({ success: false });
+    await db.collection('user_events').updateMany(
+      { username, type: 'friend-list-changed', read: false },
+      { $set: { read: true } }
+    );
     res.json({ success: true });
   });
 

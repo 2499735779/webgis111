@@ -33,30 +33,32 @@ let globalMsgTimer = null;
 const pendingFriendRequests = ref([]);
 const rejectedFriendRequests = ref([]);
 
-// 新增：红点提示
+// 梯形控件红点
 const friendTipHasUnread = ref(false);
 
-// 检查是否有未读消息或好友请求
-const checkFriendTipUnread = async () => {
-  if (!user.value.username) {
-    friendTipHasUnread.value = false;
-    return;
-  }
-  // 获取未读消息
-  const unreadRes = await axios.get('/api/unread-messages', {
+// 新增：socket监听好友列表变化事件
+function setupFriendListEventSocket(socket) {
+  // 监听后端推送的好友列表变化
+  socket.value.on('friend-list-changed', () => {
+    friendTipHasUnread.value = true;
+  });
+}
+
+// 打开好友列表时自动清除好友列表变化未读
+async function clearFriendListEvents() {
+  if (!user.value.username) return;
+  await axios.post('/api/friend-list-events/read', { username: user.value.username });
+  friendTipHasUnread.value = false;
+}
+
+// 页面初始化时拉取一次好友列表变化未读
+async function fetchFriendListEventsUnread() {
+  if (!user.value.username) return;
+  const res = await axios.get('/api/friend-list-events', {
     params: { username: user.value.username }
   });
-  const unreadMap = unreadRes.data || {};
-  // 获取收到的好友请求
-  const reqRes = await axios.get('/api/received-friend-requests', {
-    params: { username: user.value.username }
-  });
-  const friendReqs = reqRes.data || [];
-  // 判断是否有未读消息或好友请求
-  friendTipHasUnread.value =
-    Object.values(unreadMap).some(v => v > 0) ||
-    (Array.isArray(friendReqs) && friendReqs.length > 0);
-};
+  friendTipHasUnread.value = (res.data && res.data.unread > 0);
+}
 
 // 刷新好友请求状态
 async function refreshPendingRequests() {
@@ -92,6 +94,10 @@ onMounted(() => {
     window.addEventListener('map-created', () => {
       mapReady.value = true;
     }, { once: true });
+  }
+  // 初始化socket监听红点
+  if (window.friendMenuRef?.value?.socket) {
+    setupSocketFriendTip(window.friendMenuRef.value.socket);
   }
 });
 onBeforeUnmount(() => {
@@ -219,6 +225,8 @@ const hideSwitchPanel = computed(() => isLoginPage.value || isRegisterPage.value
 const showFriendList = () => {
   if (friendMenuRef.value) {
     friendMenuRef.value.showFriendList = true;
+    // 新增：打开好友列表时清除红点
+    clearFriendListEvents();
   }
 };
 
@@ -237,6 +245,8 @@ const handleFriendTip = (e) => {
       console.log('设置 showFriendList = true');
       friendMenuRef.value.showFriendList = true;
     }
+    // 新增：打开好友列表时清除红点
+    clearFriendListEvents();
   } else {
     console.log('friendMenuRef.value 未定义');
   }
@@ -257,6 +267,40 @@ function onUserAvatarClick() {
 // 新增：好友菜单是否展开
 const friendMenuVisible = computed(() => {
   return !!(friendMenuRef.value && friendMenuRef.value.showFriendList);
+});
+
+// 新增：socket监听未读消息和好友请求，动态控制红点
+function setupSocketFriendTip(socket) {
+  // 监听未读消息
+  socket.value.on('unread-updated', (data) => {
+    checkFriendTipUnread(data, lastFriendReqs);
+  });
+  // 监听好友请求
+  socket.value.on('pending-requests-updated', async () => {
+    const res = await axios.get('/api/received-friend-requests', {
+      params: { username: user.value.username }
+    });
+    checkFriendTipUnread(lastUnreadMap, res.data || []);
+  });
+}
+
+// 页面初始化时拉取一次未读消息和好友请求，保证红点初始状态正确
+onMounted(async () => {
+  // ...existing code...
+  const unreadRes = await axios.get('/api/unread-messages', {
+    params: { username: user.value.username }
+  });
+  const reqRes = await axios.get('/api/received-friend-requests', {
+    params: { username: user.value.username }
+  });
+  checkFriendTipUnread(unreadRes.data || {}, reqRes.data || []);
+  // ...existing code...
+  await fetchFriendListEventsUnread();
+  nextTick(() => {
+    if (friendMenuRef.value && friendMenuRef.value.socket) {
+      setupFriendListEventSocket(friendMenuRef.value.socket);
+    }
+  });
 });
 </script>
 

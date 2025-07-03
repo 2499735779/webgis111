@@ -170,21 +170,22 @@ const handleRequest = async (from, accept) => {
   await fetchFriends();
   await fetchFriendRequests();
   window.refreshPendingRequests && window.refreshPendingRequests();
+  // 新增：操作后清除好友列表变化未读
+  await clearFriendListEvents();
 };
 
 const sendFriendRequest = async (toUsername) => {
   if (!user.value.username || !toUsername) return;
-  console.log('sendFriendRequest called:', user.value.username, '->', toUsername);
   try {
     const res = await axios.post('/api/friend-request', {
       from: user.value.username,
       to: toUsername
     });
-    console.log('sendFriendRequest axios result:', res && res.data);
     window.ElMessage && window.ElMessage.success('好友请求已发送');
     window.refreshPendingRequests && window.refreshPendingRequests();
+    // 新增：操作后清除好友列表变化未读
+    await clearFriendListEvents();
   } catch (err) {
-    console.error('sendFriendRequest error:', err);
     window.ElMessage && window.ElMessage.error('发送好友请求失败');
   }
 };
@@ -354,6 +355,14 @@ async function deleteFriend(friend) {
   if (window.friendMenuRef?.value?.fetchFriends) {
     window.friendMenuRef.value.fetchFriends();
   }
+  // 新增：操作后清除好友列表变化未读
+  await clearFriendListEvents();
+}
+
+// 新增：清除好友列表变化未读
+async function clearFriendListEvents() {
+  if (!user.value.username) return;
+  await axios.post('/api/friend-list-events/read', { username: user.value.username });
 }
 
 // 组件卸载时移除全局事件监听
