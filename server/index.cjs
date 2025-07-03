@@ -493,13 +493,18 @@ app.post('/api/user-avatar', async (req, res) => {
     res.json({ unread: count });
   });
 
-  // 标记所有好友列表变化事件为已读
+  // 标记所有好友列表变化事件为已读，并删除已读事件
   app.post('/api/friend-list-events/read', async (req, res) => {
     const { username } = req.body;
     if (!username) return res.json({ success: false });
+    // 1. 标记为已读
     await db.collection('user_events').updateMany(
       { username, type: 'friend-list-changed', read: false },
       { $set: { read: true } }
+    );
+    // 2. 删除所有已读事件
+    await db.collection('user_events').deleteMany(
+      { username, type: 'friend-list-changed', read: true }
     );
     res.json({ success: true });
   });

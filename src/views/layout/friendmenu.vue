@@ -405,18 +405,27 @@ onMounted(async () => {
     joinRoom(user.value.username);
   }
 
-  // 监听服务器推送的事件更新数据，无需轮询
+  // 实时监听未读消息变化，及时刷新红点
   socket.value.on('unread-updated', (data) => {
-    console.log("收到未读消息更新", data);
-    unreadMap.value = data;
+    unreadMap.value = data || {};
   });
-  socket.value.on('pending-requests-updated', (data) => {
-    console.log("收到新的好友请求", data);
+
+  // 实时监听好友请求变化，及时刷新好友请求和红点
+  socket.value.on('pending-requests-updated', () => {
     fetchFriendRequests();
   });
+
+  // 实时监听好友列表变化，及时刷新好友列表
   socket.value.on('friend-list-updated', () => {
-    console.log("收到好友列表更新");
     fetchFriends();
+  });
+
+  // 新增：监听收到新聊天消息时刷新未读
+  socket.value.on('chat-message', (msg) => {
+    // 只处理发给自己的消息
+    if (msg && msg.to === user.value.username) {
+      fetchUnread();
+    }
   });
 
   // 新增：监听被删除好友通知
