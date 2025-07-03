@@ -137,14 +137,42 @@ client.connect().then(async () => {
     res.json({ message: "This endpoint requires a POST request." });
   });
 
-  // 用户头像上传/更换
-  app.post('/api/user-avatar', async (req, res) => {
-    const { username, avatar } = req.body;
-    if (!username || !avatar) return res.json({ success: false, message: '参数缺失' });
-    const userCol = db.collection('users');
-    await userCol.updateOne({ username }, { $set: { avatar } });
-    res.json({ success: true });
-  });
+  // 用户头像上传/更换（优化：存储URL和缩略图URL，后端生成缩略图）
+app.post('/api/user-avatar', async (req, res) => {
+  const { username, avatar } = req.body;
+  if (!username || !avatar) return res.json({ success: false, message: '参数缺失' });
+  const userCol = db.collection('users');
+  let avatarUrl = avatar;
+  let avatarThumbUrl = avatar;
+  if (avatar.startsWith('data:image/')) {
+    // 1. 保存原图
+    const fs = require('fs');
+    const path = require('path');
+    const sharp = require('sharp'); // 需先 npm install sharp
+    const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const avatarDir = path.join(__dirname, '../public/avatars');
+    if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+    const filePath = path.join(avatarDir, `${username}.png`);
+    fs.writeFileSync(filePath, buffer);
+    avatarUrl = `/avatars/${username}.png`;
+    // 2. 生成缩略图（如 48x48）
+    const thumbPath = path.join(avatarDir, `${username}_thumb.png`);
+    try {
+      await sharp(buffer)
+        .resize(48, 48)
+        .png()
+        .toFile(thumbPath);
+      avatarThumbUrl = `/avatars/${username}_thumb.png`;
+    } catch (err) {
+      // 若 sharp 失败，降级为原图
+      avatarThumbUrl = avatarUrl;
+      console.error('生成缩略图失败:', err);
+    }
+  }
+  await userCol.updateOne({ username }, { $set: { avatar: avatarUrl, avatarThumb: avatarThumbUrl } });
+  res.json({ success: true });
+});
 
   // 保存或更新用户坐标
   app.post('/api/user-location', async (req, res) => {
@@ -201,7 +229,7 @@ client.connect().then(async () => {
     res.json(userDoc && userDoc.friends ? userDoc.friends : []);
   });
 
-  // 批量获取用户信息（含头像）
+  // 批量获取用户信息（只返回必要字段，头像缩略图）
   app.post('/api/user-info-batch', async (req, res) => {
     const { usernames } = req.body;
     if (!Array.isArray(usernames) || usernames.length === 0) return res.json([]);
@@ -209,7 +237,7 @@ client.connect().then(async () => {
     const users = await userCol.find({ username: { $in: usernames } }).toArray();
     res.json(users.map(u => ({
       username: u.username,
-      avatar: u.avatar || ''
+      avatar: u.avatarThumb || u.avatar || '', // 优先返回缩略图URL
     })));
   });
 

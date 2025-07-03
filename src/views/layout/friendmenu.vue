@@ -140,7 +140,11 @@ const fetchFriends = async () => {
       const res2 = await axios.post('/api/user-info-batch', {
         usernames: friendNames
       });
-      friends.value = res2.data || [];
+      // 只用缩略图URL
+      friends.value = (res2.data || []).map(u => ({
+        username: u.username,
+        avatar: u.avatar || defaultAvatar
+      }));
     }
   } finally {
     loadingFriends.value = false;
@@ -236,7 +240,7 @@ const searchUser = async () => {
   // 查询后端数据库
   const res = await axios.post('/api/user-info-batch', { usernames: [searchName.value] })
   if (Array.isArray(res.data) && res.data.length > 0) {
-    // 设置默认头像
+    // 只用缩略图URL
     const userObj = res.data[0]
     if (!userObj.avatar) userObj.avatar = defaultAvatar
     searchResult.value = userObj

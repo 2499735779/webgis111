@@ -81,10 +81,6 @@ let friendTipTimer = null;
 const mapReady = ref(false);
 onMounted(() => {
   refreshPendingRequests();
-  // 删除定时轮询
-  // pendingTimer = setInterval(refreshPendingRequests, 1000);
-  checkFriendTipUnread();
-  // friendTipTimer = setInterval(checkFriendTipUnread, 1000);
   window.friendMenuRef = friendMenuRef;
   console.log('[Home.vue] onMounted, Drawdistance ref:', Drawdistance);
   // 监听地图初始化完成
@@ -101,8 +97,6 @@ onMounted(() => {
   }
 });
 onBeforeUnmount(() => {
-  // if (pendingTimer) clearInterval(pendingTimer);
-  // if (friendTipTimer) clearInterval(friendTipTimer);
   if (globalMsgTimer) clearInterval(globalMsgTimer);
   if (window.friendMenuRef === friendMenuRef) window.friendMenuRef = undefined;
 });
@@ -115,21 +109,11 @@ function openGlobalChatDialog(friend) {
     messageDialogRef.value?.refresh && messageDialogRef.value.refresh();
     refreshPendingRequests();
   });
-  if (globalMsgTimer) clearInterval(globalMsgTimer);
-  globalMsgTimer = setInterval(() => {
-    if (globalChatDialog.value && messageDialogRef.value?.refresh) {
-      messageDialogRef.value.refresh();
-    }
-  }, 1000);
 }
 window.openGlobalChatDialog = openGlobalChatDialog;
 
 function handleChatDialogClose() {
   globalChatDialog.value = false;
-  if (globalMsgTimer) {
-    clearInterval(globalMsgTimer);
-    globalMsgTimer = null;
-  }
 }
 
 // 头像相关
@@ -286,14 +270,6 @@ function setupSocketFriendTip(socket) {
 
 // 页面初始化时拉取一次未读消息和好友请求，保证红点初始状态正确
 onMounted(async () => {
-  // ...existing code...
-  const unreadRes = await axios.get('/api/unread-messages', {
-    params: { username: user.value.username }
-  });
-  const reqRes = await axios.get('/api/received-friend-requests', {
-    params: { username: user.value.username }
-  });
-  checkFriendTipUnread(unreadRes.data || {}, reqRes.data || []);
   // ...existing code...
   await fetchFriendListEventsUnread();
   nextTick(() => {
