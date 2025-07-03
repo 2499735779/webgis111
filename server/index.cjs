@@ -289,7 +289,7 @@ app.post('/api/user-avatar', async (req, res) => {
       to,
       content,
       type: type || 'chat',
-      read: false,
+      read: true, // 发消息一方始终已读
       createdAt: new Date(),
       owner: from
     };
@@ -298,7 +298,7 @@ app.post('/api/user-avatar', async (req, res) => {
       to,
       content,
       type: type || 'chat',
-      read: false,
+      read: false, // 接收方未读
       createdAt: new Date(),
       owner: to
     };
