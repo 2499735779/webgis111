@@ -123,18 +123,13 @@ const fetchUserDetail = async () => {
     usernames: [user.value.username]
   });
   if (Array.isArray(res.data) && res.data.length > 0) {
-    // 修正：如果返回的 avatar 字段是相对路径，拼接完整 URL
     let avatar = res.data[0].avatar || '';
-    console.log('[fetchUserDetail] 后端返回 avatar:', avatar);
     if (avatar && avatar.startsWith('/avatars/')) {
-      // 自动补全域名
-      const origin = window.location.origin;
-      avatar = origin + avatar;
+      avatar = window.location.origin + avatar;
     }
     user.value.avatar = avatar || defaultAvatar;
     avatarUrl.value = user.value.avatar || defaultAvatar;
     localStorage.setItem('user', JSON.stringify(user.value));
-    console.log('[fetchUserDetail] 设置 avatarUrl:', avatarUrl.value);
   }
 };
 watch(() => user.value.avatar, val => {

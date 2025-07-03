@@ -160,21 +160,30 @@ app.post('/api/user-avatar', async (req, res) => {
     if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
     const filePath = path.join(avatarDir, `${username}.${ext}`);
     try {
-      fs.writeFileSync(filePath, buffer);
+      // 修正：保存缩略图和原图时，格式要和扩展名一致
+      if (ext === 'png') {
+        await require('sharp')(buffer).png().toFile(filePath);
+      } else if (ext === 'jpeg' || ext === 'jpg') {
+        await require('sharp')(buffer).jpeg().toFile(filePath);
+      } else if (ext === 'webp') {
+        await require('sharp')(buffer).webp().toFile(filePath);
+      } else {
+        // 其它格式直接写 buffer
+        fs.writeFileSync(filePath, buffer);
+      }
       avatarUrl = `/avatars/${username}.${ext}`;
       console.log('[user-avatar] 原图已保存:', filePath);
     } catch (err) {
       console.error('[user-avatar] 保存原图失败:', err);
       return res.json({ success: false, message: '保存头像失败' });
     }
-    // 生成缩略图时根据格式选择 sharp 的输出方法
+    // 生成缩略图
     const thumbPath = path.join(avatarDir, `${username}_thumb.${ext}`);
     try {
-      let sharpInstance = sharp(buffer).resize(48, 48);
+      let sharpInstance = require('sharp')(buffer).resize(48, 48);
       if (ext === 'png') sharpInstance = sharpInstance.png();
       else if (ext === 'jpeg' || ext === 'jpg') sharpInstance = sharpInstance.jpeg();
       else if (ext === 'webp') sharpInstance = sharpInstance.webp();
-      // 其它格式可按需扩展
       await sharpInstance.toFile(thumbPath);
       avatarThumbUrl = `/avatars/${username}_thumb.${ext}`;
       console.log('[user-avatar] 缩略图已保存:', thumbPath);
@@ -503,4 +512,3 @@ app.post('/api/user-avatar', async (req, res) => {
 }).catch(err => {
   console.error('Failed to connect to MongoDB Atlas:', err);
 });
- 
