@@ -4,11 +4,13 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const https = require('https');    // 使用 https 模块
 const fs = require('fs');          // 用于读取证书和私钥文件
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
+app.use('/avatars', express.static(path.join(__dirname, '../public/avatars'))); // 新增：托管静态头像资源
 
 // 读取项目根目录 ssl 文件夹下的证书和私钥
 const options = {
