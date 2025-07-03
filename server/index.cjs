@@ -155,26 +155,28 @@ app.post('/api/user-avatar', async (req, res) => {
       console.error('缺少 sharp 依赖，请运行 npm install sharp');
       return res.json({ success: false, message: '服务器缺少 sharp 依赖' });
     }
+    // 修正：自动识别图片类型，保存为对应后缀
+    const match = avatar.match(/^data:image\/(\w+);base64,/);
+    const ext = match ? match[1].toLowerCase() : 'png';
     const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
     const avatarDir = path.join(__dirname, '../public/avatars');
     if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
-    const filePath = path.join(avatarDir, `${username}.png`);
+    const filePath = path.join(avatarDir, `${username}.${ext}`);
     try {
       fs.writeFileSync(filePath, buffer);
-      avatarUrl = `/avatars/${username}.png`;
+      avatarUrl = `/avatars/${username}.${ext}`;
     } catch (err) {
       console.error('保存原图失败:', err);
       return res.json({ success: false, message: '保存头像失败' });
     }
     // 2. 生成缩略图（如 48x48）
-    const thumbPath = path.join(avatarDir, `${username}_thumb.png`);
+    const thumbPath = path.join(avatarDir, `${username}_thumb.${ext}`);
     try {
       await sharp(buffer)
         .resize(48, 48)
-        .png()
         .toFile(thumbPath);
-      avatarThumbUrl = `/avatars/${username}_thumb.png`;
+      avatarThumbUrl = `/avatars/${username}_thumb.${ext}`;
     } catch (err) {
       avatarThumbUrl = avatarUrl;
       console.error('生成缩略图失败:', err);
