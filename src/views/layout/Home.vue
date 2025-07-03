@@ -159,14 +159,21 @@ const handleAvatarChange = async (e) => {
     avatarUrl.value = base64;
     uploading.value = true;
     try {
+      // 1. 上传头像到后端
       const res = await axios.post('/api/user-avatar', {
         username: user.value.username,
         avatar: base64
       });
       if (res.data.success) {
-        user.value.avatar = base64;
-        localStorage.setItem('user', JSON.stringify(user.value));
-        avatarUrl.value = base64;
+        // 2. 上传成功后，重新拉取后端头像URL，确保 user.avatar 为 URL
+        const infoRes = await axios.post('/api/user-info-batch', {
+          usernames: [user.value.username]
+        });
+        if (Array.isArray(infoRes.data) && infoRes.data.length > 0) {
+          user.value.avatar = infoRes.data[0].avatar || defaultAvatar;
+          avatarUrl.value = user.value.avatar;
+          localStorage.setItem('user', JSON.stringify(user.value));
+        }
       }
     } finally {
       uploading.value = false;

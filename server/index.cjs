@@ -137,10 +137,14 @@ client.connect().then(async () => {
     res.json({ message: "This endpoint requires a POST request." });
   });
 
-  // 用户头像上传/更换（优化：存储URL和缩略图URL，后端生成缩略图）
+  // 用户头像上传/更换（优化：存储URL和缩略图URL，后端生成缩略图，增加日志调试）
 app.post('/api/user-avatar', async (req, res) => {
   const { username, avatar } = req.body;
-  if (!username || !avatar) return res.json({ success: false, message: '参数缺失' });
+  console.log('[user-avatar] 请求参数:', { username, avatarType: typeof avatar, avatarLen: avatar ? avatar.length : 0 });
+  if (!username || !avatar) {
+    console.log('[user-avatar] 参数缺失');
+    return res.json({ success: false, message: '参数缺失' });
+  }
   const userCol = db.collection('users');
   let avatarUrl = avatar;
   let avatarThumbUrl = avatar;
@@ -152,10 +156,10 @@ app.post('/api/user-avatar', async (req, res) => {
     try {
       sharp = require('sharp');
     } catch (e) {
-      console.error('缺少 sharp 依赖，请运行 npm install sharp');
+      console.error('[user-avatar] 缺少 sharp 依赖，请运行 npm install sharp');
       return res.json({ success: false, message: '服务器缺少 sharp 依赖' });
     }
-    // 修正：自动识别图片类型，保存为对应后缀
+    // 自动识别图片类型，保存为对应后缀
     const match = avatar.match(/^data:image\/(\w+);base64,/);
     const ext = match ? match[1].toLowerCase() : 'png';
     const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
@@ -166,8 +170,9 @@ app.post('/api/user-avatar', async (req, res) => {
     try {
       fs.writeFileSync(filePath, buffer);
       avatarUrl = `/avatars/${username}.${ext}`;
+      console.log('[user-avatar] 原图已保存:', filePath);
     } catch (err) {
-      console.error('保存原图失败:', err);
+      console.error('[user-avatar] 保存原图失败:', err);
       return res.json({ success: false, message: '保存头像失败' });
     }
     // 2. 生成缩略图（如 48x48）
@@ -177,13 +182,28 @@ app.post('/api/user-avatar', async (req, res) => {
         .resize(48, 48)
         .toFile(thumbPath);
       avatarThumbUrl = `/avatars/${username}_thumb.${ext}`;
+      console.log('[user-avatar] 缩略图已保存:', thumbPath);
     } catch (err) {
       avatarThumbUrl = avatarUrl;
-      console.error('生成缩略图失败:', err);
+      console.error('[user-avatar] 生成缩略图失败:', err);
     }
+  } else {
+    // 非 base64，直接存储 URL
+    avatarUrl = avatar;
+    avatarThumbUrl = avatar;
+    console.log('[user-avatar] avatar 非 base64，直接存储:', avatar);
   }
   // 只更新头像字段，不影响其它字段
-  await userCol.updateOne({ username }, { $set: { avatar: avatarUrl, avatarThumb: avatarThumbUrl } });
+  try {
+    const updateRes = await userCol.updateOne(
+      { username },
+      { $set: { avatar: avatarUrl, avatarThumb: avatarThumbUrl } }
+    );
+    console.log('[user-avatar] 数据库更新结果:', updateRes);
+  } catch (err) {
+    console.error('[user-avatar] 数据库更新失败:', err);
+    return res.json({ success: false, message: '数据库更新失败' });
+  }
   res.json({ success: true });
 });
 
