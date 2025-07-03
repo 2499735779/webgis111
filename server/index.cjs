@@ -151,16 +151,6 @@ app.post('/api/user-avatar', async (req, res) => {
   let avatarUrl = avatar;
   let avatarThumbUrl = avatar;
   if (avatar.startsWith('data:image/')) {
-    // 1. 保存原图
-    const fs = require('fs');
-    const path = require('path');
-    let sharp;
-    try {
-      sharp = require('sharp');
-    } catch (e) {
-      console.error('[user-avatar] 缺少 sharp 依赖，请运行 npm install sharp');
-      return res.json({ success: false, message: '服务器缺少 sharp 依赖' });
-    }
     // 自动识别图片类型，保存为对应后缀
     const match = avatar.match(/^data:image\/(\w+);base64,/);
     const ext = match ? match[1].toLowerCase() : 'png';
@@ -177,12 +167,15 @@ app.post('/api/user-avatar', async (req, res) => {
       console.error('[user-avatar] 保存原图失败:', err);
       return res.json({ success: false, message: '保存头像失败' });
     }
-    // 2. 生成缩略图（如 48x48）
+    // 生成缩略图时根据格式选择 sharp 的输出方法
     const thumbPath = path.join(avatarDir, `${username}_thumb.${ext}`);
     try {
-      await sharp(buffer)
-        .resize(48, 48)
-        .toFile(thumbPath);
+      let sharpInstance = sharp(buffer).resize(48, 48);
+      if (ext === 'png') sharpInstance = sharpInstance.png();
+      else if (ext === 'jpeg' || ext === 'jpg') sharpInstance = sharpInstance.jpeg();
+      else if (ext === 'webp') sharpInstance = sharpInstance.webp();
+      // 其它格式可按需扩展
+      await sharpInstance.toFile(thumbPath);
       avatarThumbUrl = `/avatars/${username}_thumb.${ext}`;
       console.log('[user-avatar] 缩略图已保存:', thumbPath);
     } catch (err) {
@@ -510,3 +503,7 @@ app.post('/api/user-avatar', async (req, res) => {
 }).catch(err => {
   console.error('Failed to connect to MongoDB Atlas:', err);
 });
+  const port = 443;
+  server.listen(port, () => {
+    console.log(`HTTPS Server running on port ${port}`);
+  });

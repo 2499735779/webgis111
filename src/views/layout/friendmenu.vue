@@ -126,6 +126,14 @@ const unreadMap = ref({});
 const friendRequests = ref([]);
 const friendItemRefs = ref([]);
 
+// 工具函数：补全头像URL为绝对路径
+function fixAvatarUrl(avatar) {
+  if (!avatar) return defaultAvatar;
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
+  if (avatar.startsWith('/avatars/')) return window.location.origin + avatar;
+  return avatar;
+}
+
 // 原有的请求函数保持不变
 const fetchFriends = async () => {
   loadingFriends.value = true;
@@ -140,10 +148,10 @@ const fetchFriends = async () => {
       const res2 = await axios.post('/api/user-info-batch', {
         usernames: friendNames
       });
-      // 只用缩略图URL
+      // 修正：补全头像URL为绝对路径
       friends.value = (res2.data || []).map(u => ({
         username: u.username,
-        avatar: u.avatar || defaultAvatar
+        avatar: fixAvatarUrl(u.avatar)
       }));
     }
   } finally {
@@ -162,7 +170,11 @@ const fetchFriendRequests = async () => {
   const res = await axios.get('/api/received-friend-requests', {
     params: { username: user.value.username }
   });
-  friendRequests.value = res.data || [];
+  // 修正：补全头像URL为绝对路径
+  friendRequests.value = (res.data || []).map(req => ({
+    ...req,
+    avatar: fixAvatarUrl(req.avatar)
+  }));
 };
 
 const handleRequest = async (from, accept) => {
@@ -240,9 +252,9 @@ const searchUser = async () => {
   // 查询后端数据库
   const res = await axios.post('/api/user-info-batch', { usernames: [searchName.value] })
   if (Array.isArray(res.data) && res.data.length > 0) {
-    // 只用缩略图URL
+    // 修正：补全头像URL为绝对路径
     const userObj = res.data[0]
-    if (!userObj.avatar) userObj.avatar = defaultAvatar
+    userObj.avatar = fixAvatarUrl(userObj.avatar)
     searchResult.value = userObj
   } else {
     searchResult.value = {}
