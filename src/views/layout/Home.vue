@@ -117,6 +117,8 @@ function handleChatDialogClose() {
 }
 
 // 头像相关
+const backendOrigin = 'https://kexiaohua.online'; // 后端部署域名
+
 const fetchUserDetail = async () => {
   if (!user.value.username) return;
   const res = await axios.post('/api/user-info-batch', {
@@ -124,8 +126,9 @@ const fetchUserDetail = async () => {
   });
   if (Array.isArray(res.data) && res.data.length > 0) {
     let avatar = res.data[0].avatar || '';
+    // 强制拼接后端域名
     if (avatar && avatar.startsWith('/avatars/')) {
-      avatar = window.location.origin + avatar;
+      avatar = backendOrigin + avatar;
     }
     user.value.avatar = avatar || defaultAvatar;
     avatarUrl.value = user.value.avatar || defaultAvatar;
@@ -176,7 +179,7 @@ const handleAvatarChange = async (e) => {
         if (Array.isArray(infoRes.data) && infoRes.data.length > 0) {
           let avatar = infoRes.data[0].avatar || '';
           if (avatar && avatar.startsWith('/avatars/')) {
-            avatar = window.location.origin + avatar;
+            avatar = backendOrigin + avatar;
           }
           user.value.avatar = avatar || defaultAvatar;
           avatarUrl.value = user.value.avatar;
