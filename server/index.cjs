@@ -503,7 +503,4 @@ app.post('/api/user-avatar', async (req, res) => {
 }).catch(err => {
   console.error('Failed to connect to MongoDB Atlas:', err);
 });
-  const port = 443;
-  server.listen(port, () => {
-    console.log(`HTTPS Server running on port ${port}`);
-  });
+ 
