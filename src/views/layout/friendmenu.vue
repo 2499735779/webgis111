@@ -503,7 +503,7 @@ defineExpose({
   background-image: var(--cup-line);
   background-repeat: no-repeat;
   background-position: bottom left;
-  background-size: 90% 12px;
+  background-size: 90% 24px; /* 增大高度 */
 }
 
 /* 5. 好友项字体和分割线 */
@@ -521,7 +521,7 @@ defineExpose({
   background-image: var(--cup-line);
   background-repeat: no-repeat;
   background-position: bottom left;
-  background-size: 90% 10px;
+  background-size: 90% 18px; /* 增大高度 */
 }
 .friend-list-item:hover {
   background: rgba(245, 225, 164, 0.25);
@@ -601,7 +601,7 @@ defineExpose({
   background-image: var(--cup-line);
   background-repeat: no-repeat;
   background-position: bottom left;
-  background-size: 90% 8px;
+  background-size: 90% 12px; /* 增大高度 */
 }
 .context-menu-item:hover {
   background: rgba(245, 225, 164, 0.25);
