@@ -38,41 +38,47 @@ const friendTipHasUnread = ref(false);
 
 // 实时监听好友列表变化事件（红点）
 function setupFriendListEventSocket(socket) {
-  // 监听后端推送的好友列表变化
   socket.value.on('friend-list-changed', () => {
+    console.log('[friend-list-changed] 红点应显示');
     friendTipHasUnread.value = true;
+    console.log('[friendTipHasUnread]', friendTipHasUnread.value);
   });
-  // 监听处理已读后端事件，实时清除红点
   socket.value.on('friend-list-events-read', () => {
+    console.log('[friend-list-events-read] 红点应隐藏');
     friendTipHasUnread.value = false;
+    console.log('[friendTipHasUnread]', friendTipHasUnread.value);
   });
-  // 新增：监听收到新聊天消息时自动显示红点
   socket.value.on('chat-message', (msg) => {
-    // 只处理发给自己的消息
+    console.log('[chat-message]', msg);
     if (msg && msg.to === user.value.username) {
       friendTipHasUnread.value = true;
+      console.log('[friendTipHasUnread]', friendTipHasUnread.value);
     }
   });
 }
 
 // 打开好友列表时自动清除好友列表变化未读
 async function clearFriendListEvents() {
+  console.log('[clearFriendListEvents] called');
   if (!user.value.username) return;
   await axios.post('/api/friend-list-events/read', { username: user.value.username });
   friendTipHasUnread.value = false;
-  // 主动通知后端（可选，建议后端 emit 一个事件）
+  console.log('[friendTipHasUnread]', friendTipHasUnread.value);
   if (window.friendMenuRef?.value?.socket) {
     window.friendMenuRef.value.socket.value.emit('friend-list-events-read');
+    console.log('[emit] friend-list-events-read');
   }
 }
 
 // 页面初始化时拉取一次好友列表变化未读
 async function fetchFriendListEventsUnread() {
+  console.log('[fetchFriendListEventsUnread] called');
   if (!user.value.username) return;
   const res = await axios.get('/api/friend-list-events', {
     params: { username: user.value.username }
   });
   friendTipHasUnread.value = (res.data && res.data.unread > 0);
+  console.log('[friendTipHasUnread] 初始化:', friendTipHasUnread.value, '未读数:', res.data && res.data.unread);
 }
 
 // 刷新好友请求状态
@@ -313,8 +319,8 @@ onMounted(async () => {
   // ...existing code...
   await fetchFriendListEventsUnread();
   nextTick(() => {
-    // 确保 socket 事件监听只初始化一次
     if (friendMenuRef.value && friendMenuRef.value.socket && !friendMenuRef.value._setupFriendListEventSocket) {
+      console.log('[setupFriendListEventSocket] 绑定');
       setupFriendListEventSocket(friendMenuRef.value.socket);
       friendMenuRef.value._setupFriendListEventSocket = true;
     }
@@ -348,7 +354,11 @@ function onAvatarError(e) {
           v-if="friendTipHasUnread"
           class="friend-tip-unread-dot"
           title="有新消息或好友请求"
-        ></span>
+        >
+          <script>
+            console.log('[friendTipHasUnread] 红点渲染');
+          </script>
+        </span>
       </div>
     </div>
     <FriendMenu ref="friendMenuRef" @open-chat="openGlobalChatDialog" />
