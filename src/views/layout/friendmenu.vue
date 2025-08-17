@@ -450,7 +450,6 @@ defineExpose({
 </script>
 
 <style scoped>
-/* 1. 引入江西拙楷字体 */
 @font-face {
   font-family: 'JiangxiZhuokai';
   src: url('/fonts/jiangxi-zhoukai/jiangxizhuokai-Regular.woff2') format('woff2'),
@@ -458,21 +457,21 @@ defineExpose({
   font-display: swap;
 }
 
-/* 2. 奶油黄玉深棕渐变主色调 */
+/* 2. 奶油黄玉深棕渐变主色调和分割线变量（分割线改为SVG） */
 :root {
-  --cup-bg-gradient: linear-gradient(135deg, #fdf6e3 0%, #f5e1a4 50%, #a67c52 100%);
   --cup-border: url('/images/cuphead-border.png');
-  --cup-line: url('/images/cuphead-line.png');
+  --cup-line: url('/fenggexian.svg');
 }
 
-/* 3. 好友列表整体风格 */
+/* 3. 好友列表整体风格，背景图片替换 */
 .friend-list-sidebar {
   position: fixed;
   top: 0;
   left: -220px;
   width: 240px;
   height: 100vh;
-  background: var(--cup-bg-gradient);
+  /* 替换为手绘背景图片 */
+  background: url('/data/friendlistbackground.jpg') center center/cover no-repeat;
   box-shadow: none;
   border: none;
   z-index: 5000;
@@ -480,11 +479,9 @@ defineExpose({
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  /* 手绘边框 */
   border-image: var(--cup-border) 30 stretch;
   border-width: 18px;
   border-style: solid;
-  /* 可选：加点粗糙滤镜 */
   filter: contrast(1.05) brightness(1.03);
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
 }
@@ -618,3 +615,6 @@ defineExpose({
   text-align: center;
 }
 </style>
+  text-align: center;
+}
+
