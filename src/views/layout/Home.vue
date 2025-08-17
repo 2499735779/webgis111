@@ -359,6 +359,8 @@ async function clearFriendListEvents() {
   friendTipHasUnread.value = false;
   console.log('[Home.vue] clearFriendListEvents: 红点已清除');
 }
+
+const mapReady = ref(false);
 </script>
 
 <template>
