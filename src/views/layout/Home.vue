@@ -346,6 +346,19 @@ function onAvatarError(e) {
   console.warn('[头像加载失败]', avatarUrl.value, e);
   avatarUrl.value = defaultAvatar;
 }
+
+// 新增：清除好友列表变化未读（红点）
+async function clearFriendListEvents() {
+  if (!user.value.username) return;
+  // 标记后端事件为已读
+  await axios.post('/api/friend-list-events/read', { username: user.value.username });
+  // 主动通过 socket 通知所有客户端清除红点
+  if (homeSocket && homeSocket.value) {
+    homeSocket.value.emit('friend-list-events-read', { username: user.value.username });
+  }
+  friendTipHasUnread.value = false;
+  console.log('[Home.vue] clearFriendListEvents: 红点已清除');
+}
 </script>
 
 <template>
