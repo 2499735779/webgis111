@@ -222,7 +222,6 @@ const handleFriendListLeave = () => {
 };
 
 const handleFriendClick = (f) => {
-  console.log('FriendMenu.vue handleFriendClick', f);
   if (window.openGlobalChatDialog) {
     window.openGlobalChatDialog(f);
   } else {
@@ -388,7 +387,6 @@ onUnmounted(() => {
 });
 
 onMounted(async () => {
-  console.log('FriendMenu.vue onMounted');
   // 初次加载数据
   await fetchFriends();
   await fetchUnread();
@@ -441,7 +439,6 @@ onBeforeUnmount(() => {
   // socket.value.off('unread-updated');
   // socket.value.off('new-friend-request');
   // socket.value.off('friend-list-updated');
-  console.log('FriendMenu.vue onBeforeUnmount');
 });
 
 // 暴露部分方法给父组件使用
@@ -684,6 +681,9 @@ defineExpose({
   padding: 0 !important;
   min-width: 120px !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+  border-radius: 6px !important;
+}
+</style>
   border-radius: 6px !important;
 }
 </style>

@@ -58,7 +58,17 @@ async function fetchFriendListEventsUnread() {
     params: { username: user.value.username }
   });
   friendTipHasUnread.value = (res.data && res.data.unread > 0);
-  console.log('[friendTipHasUnread] 初始化:', friendTipHasUnread.value, '未读数:', res.data && res.data.unread);
+}
+
+async function clearFriendListEvents() {
+  if (!user.value.username) return;
+  // 标记后端事件为已读
+  await axios.post('/api/friend-list-events/read', { username: user.value.username });
+  // 主动通过 socket 通知所有客户端清除红点
+  if (homeSocket && homeSocket.value) {
+    homeSocket.value.emit('friend-list-events-read', { username: user.value.username });
+  }
+  friendTipHasUnread.value = false;
 }
 
 // 新增：主界面独立初始化 socket 并监听事件
@@ -66,7 +76,6 @@ let homeSocket = null;
 onMounted(async () => {
   await refreshPendingRequests();
   window.friendMenuRef = friendMenuRef;
-  console.log('[Home.vue] onMounted, Drawdistance ref:', Drawdistance);
   // 监听地图初始化完成
   if (window.map) {
     mapReady.value = true;
@@ -84,10 +93,8 @@ onMounted(async () => {
   }
   // 监听未读消息
   homeSocket.value.on('unread-updated', async (data) => {
-    // 直接拉取最新未读消息和好友请求
     await refreshPendingRequests();
     friendTipHasUnread.value = Object.values(data).some(v => v > 0);
-    console.log('[Home.vue] 红点刷新: unread-updated', friendTipHasUnread.value);
   });
   // 监听好友请求
   homeSocket.value.on('pending-requests-updated', async () => {
@@ -96,22 +103,17 @@ onMounted(async () => {
       params: { username: user.value.username }
     });
     friendTipHasUnread.value = Array.isArray(res.data) && res.data.length > 0;
-    console.log('[Home.vue] 红点刷新: pending-requests-updated', friendTipHasUnread.value);
   });
   // 监听好友列表变化事件
   homeSocket.value.on('friend-list-changed', async () => {
     await fetchFriendListEventsUnread();
-    console.log('[Home.vue] 红点刷新: friend-list-changed', friendTipHasUnread.value);
   });
   // 监听主动清除红点事件
   homeSocket.value.on('friend-list-events-read', () => {
     friendTipHasUnread.value = false;
-    console.log('[Home.vue] 红点清除: friend-list-events-read');
   });
   // 监听聊天消息
-  homeSocket.value.on('chat-message', (msg) => {
-    console.log('[Home.vue] 收到聊天消息:', msg);
-  });
+  homeSocket.value.on('chat-message', (msg) => {});
   // 初始化socket监听红点（只刷新红点，不刷新地图等其他内容）
   nextTick(() => {
     // 兼容 socket 初始化时机
@@ -277,23 +279,15 @@ const showFriendList = () => {
 
 // 兼容PC和移动端，确保弹出好友列表
 const handleFriendTip = (e) => {
-  console.log('梯形控件响应事件触发:', {
-    friendMenuRef: friendMenuRef.value,
-    showFriendList: friendMenuRef.value && friendMenuRef.value.showFriendList
-  });
   e && e.preventDefault && e.preventDefault();
   if (friendMenuRef.value) {
     if (typeof friendMenuRef.value.showFriendList === 'function') {
-      console.log('调用 showFriendList() 方法');
       friendMenuRef.value.showFriendList();
     } else {
-      console.log('设置 showFriendList = true');
       friendMenuRef.value.showFriendList = true;
     }
     // 新增：打开好友列表时清除红点
     clearFriendListEvents();
-  } else {
-    console.log('friendMenuRef.value 未定义');
   }
 };
 
@@ -334,7 +328,6 @@ onMounted(async () => {
   await fetchFriendListEventsUnread();
   nextTick(() => {
     if (friendMenuRef.value && friendMenuRef.value.socket && !friendMenuRef.value._setupFriendListEventSocket) {
-      console.log('[setupFriendListEventSocket] 绑定');
       setupFriendListEventSocket(friendMenuRef.value.socket);
       friendMenuRef.value._setupFriendListEventSocket = true;
     }
@@ -343,24 +336,8 @@ onMounted(async () => {
 
 // 头像加载失败回调，防止未定义警告
 function onAvatarError(e) {
-  console.warn('[头像加载失败]', avatarUrl.value, e);
   avatarUrl.value = defaultAvatar;
 }
-
-// 新增：清除好友列表变化未读（红点）
-async function clearFriendListEvents() {
-  if (!user.value.username) return;
-  // 标记后端事件为已读
-  await axios.post('/api/friend-list-events/read', { username: user.value.username });
-  // 主动通过 socket 通知所有客户端清除红点
-  if (homeSocket && homeSocket.value) {
-    homeSocket.value.emit('friend-list-events-read', { username: user.value.username });
-  }
-  friendTipHasUnread.value = false;
-  console.log('[Home.vue] clearFriendListEvents: 红点已清除');
-}
-
-const mapReady = ref(false);
 </script>
 
 <template>
