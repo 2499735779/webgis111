@@ -36,24 +36,22 @@ const rejectedFriendRequests = ref([]);
 // 梯形控件红点
 const friendTipHasUnread = ref(false);
 
-// 实时监听好友列表变化事件（红点）
-function setupFriendListEventSocket(socket) {
-  socket.value.on('friend-list-changed', () => {
-    console.log('[friend-list-changed] 红点应显示');
-    friendTipHasUnread.value = true;
-    console.log('[friendTipHasUnread]', friendTipHasUnread.value);
+// 新增：主界面独立监听 socket 红点事件，只刷新红点
+function setupHomeSocketFriendTip(socket) {
+  // 监听未读消息
+  socket.value.on('unread-updated', (data) => {
+    // 只刷新红点，不刷新其他内容
+    friendTipHasUnread.value = Object.values(data).some(v => v > 0);
+    console.log('[Home.vue] 红点刷新: unread-updated', friendTipHasUnread.value);
   });
-  socket.value.on('friend-list-events-read', () => {
-    console.log('[friend-list-events-read] 红点应隐藏');
-    friendTipHasUnread.value = false;
-    console.log('[friendTipHasUnread]', friendTipHasUnread.value);
-  });
-  socket.value.on('chat-message', (msg) => {
-    console.log('[chat-message]', msg);
-    if (msg && msg.to === user.value.username) {
-      friendTipHasUnread.value = true;
-      console.log('[friendTipHasUnread]', friendTipHasUnread.value);
-    }
+  // 监听好友请求
+  socket.value.on('pending-requests-updated', async () => {
+    // 拉取最新好友请求，仅用于红点判断
+    const res = await axios.get('/api/received-friend-requests', {
+      params: { username: user.value.username }
+    });
+    friendTipHasUnread.value = Array.isArray(res.data) && res.data.length > 0;
+    console.log('[Home.vue] 红点刷新: pending-requests-updated', friendTipHasUnread.value);
   });
 }
 
@@ -112,10 +110,9 @@ onMounted(() => {
       mapReady.value = true;
     }, { once: true });
   }
-  // 初始化socket监听红点
+  // 初始化socket监听红点（只刷新红点，不刷新地图等其他内容）
   if (window.friendMenuRef?.value?.socket) {
-    // 这里绑定的是 setupSocketFriendTip
-    setupSocketFriendTip(window.friendMenuRef.value.socket);
+    setupHomeSocketFriendTip(window.friendMenuRef.value.socket);
   }
   // 但主界面红点依赖的是 setupFriendListEventSocket
   // 应该确保 setupFriendListEventSocket 也被绑定
