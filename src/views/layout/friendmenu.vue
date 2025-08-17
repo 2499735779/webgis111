@@ -467,7 +467,7 @@ defineExpose({
 .friend-list-sidebar {
   position: fixed;
   top: 0;
-  left: -220px;
+  left: -240px; /* 修正为负宽度，完全隐藏 */
   width: 240px;
   height: 100vh;
   background: url('/friendlistbackground.jpg') center center/cover no-repeat;
