@@ -514,7 +514,7 @@ defineExpose({
   border-bottom: 0;
   position: relative;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 .friend-list-item:not(:last-child)::after {
   content: "";
@@ -528,25 +528,28 @@ defineExpose({
   opacity: 0.6;
 }
 
-/* 右键菜单分割线 */
-.context-menu-item:not(:last-child)::after {
-  content: "";
-  display: block;
-  width: 80%;
-  height: 0;
-  margin: 8px auto 0 auto;
-  border-bottom: 1.5px solid #e7cfa2;
-  border-radius: 0 0 10px 10px;
-  box-shadow: 0 1px 4px rgba(166,124,82,0.05);
-  opacity: 0.5;
+/* 鼠标悬停时变深色，字体变浅色，头像高亮 */
+.friend-list-item:hover {
+  background: #a67c52;
+  color: #fff;
+  transition: background 0.2s, color 0.2s;
+}
+.friend-list-item:hover .friend-list-name {
+  color: #fff;
+  text-shadow: none;
+}
+.friend-list-item:hover .el-avatar {
+  box-shadow: 0 0 8px #fff, 0 2px 8px rgba(0,0,0,0.10);
+  border: 2px solid #fff;
 }
 
-/* 其它样式保持不变 */
+/* 好友名称与头像垂直居中对齐 */
 .friend-list-name {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   font-size: 18px;
   color: #7c4a1e;
   margin-left: 12px;
+  margin-top: -4px; /* 向上调整，使与头像居中 */
   word-break: break-all;
   flex: 1;
   text-shadow: 1px 1px 0 #f5e1a4;
