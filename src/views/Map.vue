@@ -876,41 +876,4 @@ html, body, #app {
   pointer-events: auto;
 }
 </style>
-  pointer-events: auto;
-  gap: 8px;
-}
-.search-error-msg-bar {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 24px;
-  margin-bottom: 2px;
-}
-.user-location-marker {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  z-index: 21000;
-  pointer-events: auto; /* 允许鼠标事件 */
-}
-.user-location-tip {
-  position: fixed;
-  background: #67c23a;
-  color: #fff;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 15px;
-  z-index: 30001;
-  pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-/* 新增：强制提升 overlay 容器 z-index */
-.ol-overlaycontainer, .ol-overlaycontainer-stopevent {
-  z-index: 99999 !important;
-  pointer-events: none;
-}
-.ol-overlaycontainer .user-marker, .ol-overlaycontainer-stopevent .user-marker {
-  pointer-events: auto;
-}
-</style>
+ 

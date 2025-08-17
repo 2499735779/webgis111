@@ -64,9 +64,8 @@ onMounted(async () => {
   if (user.value.username) {
     socketData.joinRoom(user.value.username)
   }
-  // 监听后端推送的新消息事件（使用 "chat-message" 事件，与后端保持一致）
+  // 监听后端推送的新消息事件
   socket.value.on('chat-message', async (msg) => {
-    console.debug('[DEBUG] messageDialog received chat-message:', msg)
     // 如果当前对话正在与该好友进行，同时消息来自该好友，则刷新消息记录
     if (props.visible && props.friend?.username && msg.from === props.friend.username) {
       await fetchMessages()
@@ -74,7 +73,6 @@ onMounted(async () => {
   })
   // 监听未读消息更新事件
   socket.value.on('unread-updated', async (data) => {
-    console.debug('[DEBUG] messageDialog received unread-updated:', data)
     // 刷新当前对话的消息（如有需要，也可单独更新未读状态）
     if (props.visible && props.friend?.username) {
       await fetchMessages()
@@ -110,7 +108,7 @@ onBeforeUnmount(() => {
     width="420px"
     class="msg-chat-dialog"
     append-to-body
-    @open="console.debug('[DEBUG] el-dialog @open')"
+    @open=""
     @close="emit('close')"
   >
     <div class="msg-chat-list" ref="chatListRef">
