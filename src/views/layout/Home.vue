@@ -36,11 +36,22 @@ const rejectedFriendRequests = ref([]);
 // 梯形控件红点
 const friendTipHasUnread = ref(false);
 
-// 新增：socket监听好友列表变化事件
+// 实时监听好友列表变化事件（红点）
 function setupFriendListEventSocket(socket) {
   // 监听后端推送的好友列表变化
   socket.value.on('friend-list-changed', () => {
     friendTipHasUnread.value = true;
+  });
+  // 监听处理已读后端事件，实时清除红点
+  socket.value.on('friend-list-events-read', () => {
+    friendTipHasUnread.value = false;
+  });
+  // 新增：监听收到新聊天消息时自动显示红点
+  socket.value.on('chat-message', (msg) => {
+    // 只处理发给自己的消息
+    if (msg && msg.to === user.value.username) {
+      friendTipHasUnread.value = true;
+    }
   });
 }
 
@@ -49,6 +60,10 @@ async function clearFriendListEvents() {
   if (!user.value.username) return;
   await axios.post('/api/friend-list-events/read', { username: user.value.username });
   friendTipHasUnread.value = false;
+  // 主动通知后端（可选，建议后端 emit 一个事件）
+  if (window.friendMenuRef?.value?.socket) {
+    window.friendMenuRef.value.socket.value.emit('friend-list-events-read');
+  }
 }
 
 // 页面初始化时拉取一次好友列表变化未读
@@ -291,8 +306,10 @@ onMounted(async () => {
   // ...existing code...
   await fetchFriendListEventsUnread();
   nextTick(() => {
-    if (friendMenuRef.value && friendMenuRef.value.socket) {
+    // 确保 socket 事件监听只初始化一次
+    if (friendMenuRef.value && friendMenuRef.value.socket && !friendMenuRef.value._setupFriendListEventSocket) {
       setupFriendListEventSocket(friendMenuRef.value.socket);
+      friendMenuRef.value._setupFriendListEventSocket = true;
     }
   });
 });

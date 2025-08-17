@@ -73,6 +73,14 @@ io.on('connection', (socket) => {
     io.to(to).emit('friend-removed-notice', { from });
   });
 
+  // 监听前端主动清除好友列表红点事件
+  socket.on('friend-list-events-read', (data) => {
+    const { username } = data || {};
+    if (!username) return;
+    // 通知该用户所有客户端清除红点
+    io.to(username).emit('friend-list-events-read');
+  });
+
   socket.on('disconnect', () => {
     console.log("Client disconnected:", socket.id);
   });
