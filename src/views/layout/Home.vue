@@ -342,31 +342,20 @@ function onAvatarError(e) {
 
 <template>
   <div class="home-root">
-    <!-- 竖直等腰梯形好友入口提示控件，箭头居中 -->
-    <div
-      class="friend-tip-vertical-trapezoid"
-      @mouseenter="handleFriendTip"
-      @touchstart="handleFriendTip"
-      @click="handleFriendTip"
-      title="点击或触摸打开好友列表"
-      :class="{ 'friend-tip-disabled': friendMenuVisible }"
-      :style="{ pointerEvents: friendMenuVisible ? 'none' : 'auto', opacity: friendMenuVisible ? 0.5 : 1 }"
-    >
-      <div class="friend-tip-arrow-content">
-        <svg class="friend-tip-arrow" width="24" height="48" viewBox="0 0 24 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="20,8 20,40 6,24" fill="#409eff"/>
-        </svg>
-        <span
-          v-if="friendTipHasUnread"
-          class="friend-tip-unread-dot"
-          title="有新消息或好友请求"
-        >
-          <script>
-            console.log('[friendTipHasUnread] 红点渲染');
-          </script>
-        </span>
-      </div>
-    </div>
+    <!-- 左侧SVG图标，弹出好友列表时消失，收回时出现，带动画 -->
+    <transition name="friend-tip-fade-slide">
+      <img
+        v-if="!friendMenuVisible"
+        :src="friendTipHasUnread ? '/newmessgae.svg' : '/zhaoshou.svg'"
+        :alt="friendTipHasUnread ? '有新消息' : '招手'"
+        class="friend-tip-svg-abs"
+        @mouseenter="handleFriendTip"
+        @touchstart="handleFriendTip"
+        @click="handleFriendTip"
+        title="点击或触摸打开好友列表"
+        draggable="false"
+      />
+    </transition>
     <FriendMenu ref="friendMenuRef" @open-chat="openGlobalChatDialog" />
     <Map class="map-bg" />
     <Header class="header-fixed"/>
@@ -551,78 +540,41 @@ function onAvatarError(e) {
   display: inline-block;
   cursor: pointer;
 }
-/* 竖直等腰梯形控件样式 */
-.friend-tip-vertical-trapezoid {
+/* 删除梯形相关样式，新增绝对定位SVG样式 */
+.friend-tip-svg-abs {
   position: fixed;
   left: 0;
   top: 50%;
+  transform: translateY(-50%);
   z-index: 5001;
-  width: 48px;
-  height: 120px;
-  background: #fff;
-  color: #409eff;
+  width: 72px;
+  height: 180px;
   cursor: pointer;
   user-select: none;
-  border: 1px solid #e5e6eb;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  clip-path: polygon(0 0, 100% 12px, 100% calc(100% - 12px), 0 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: box-shadow 0.2s, background 0.2s;
-  transform: translateY(-50%);
-  background-clip: padding-box;
-}
-.friend-tip-vertical-trapezoid:hover {
-  background: #f0f7ff;
-  box-shadow: 0 4px 16px rgba(64,158,255,0.12);
-}
-.friend-tip-arrow-content {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.friend-tip-arrow {
-  display: block;
-  margin: 0 auto;
-}
-.friend-tip-unread-dot {
-  position: absolute;
-  top: 10px;
-  right: 8px;
-  width: 13px;
-  height: 13px;
-  background: #f56c6c;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 4px #f56c6c;
-  z-index: 2;
-  pointer-events: none;
-}
-.friend-tip-vertical-trapezoid.friend-tip-disabled {
-  pointer-events: none;
-  opacity: 0.5;
-  filter: grayscale(0.6);
+  pointer-events: auto;
+  transition: opacity 0.2s;
 }
 @media (max-width: 600px) {
-  .friend-tip-vertical-trapezoid {
-    height: 80px;
-    width: 36px;
-  }
-  .friend-tip-arrow {
-    width: 18px;
-    height: 32px;
-  }
-  .friend-tip-unread-dot {
-    width: 10px;
-    height: 10px;
-    top: 6px;
-    right: 4px;
+  .friend-tip-svg-abs {
+    width: 54px;
+    height: 120px;
   }
 }
+
+/* 动画：淡入淡出+左右滑动 */
+.friend-tip-fade-slide-enter-active,
+.friend-tip-fade-slide-leave-active {
+  transition: opacity 0.3s;
+}
+.friend-tip-fade-slide-enter-from,
+.friend-tip-fade-slide-leave-to {
+  opacity: 0;
+}
+.friend-tip-fade-slide-enter-to,
+.friend-tip-fade-slide-leave-from {
+  opacity: 1;
+}
+
 /* 保证el-dialog弹窗层级高于其他控件 */
 :deep(.el-overlay) {
   z-index: 4100 !important;

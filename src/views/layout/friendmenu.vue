@@ -88,24 +88,23 @@
         </div>
       </div>
     </el-dialog>
-    <!-- 全局右键菜单 popover，只渲染一次 -->
-    <el-popover
-      v-if="contextMenu.visible && contextMenu.friend"
-      :visible="contextMenu.visible"
-      :virtual-ref="contextMenu.virtualRef"
-      virtual-triggering
-      placement="bottom-start"
-      width="160"
-      @after-leave="onContextMenuAfterLeave"
-      append-to-body
-      popper-class="friend-context-popover"
+    <!-- 只保留棕色发光圆角框弹窗，绝对定位模拟弹窗位置 -->
+    <div
+      v-if="contextMenu.visible && contextMenu.friend && contextMenu.virtualRef"
+      class="friend-context-popover"
+      :style="{
+        position: 'fixed',
+        left: contextMenu.virtualRef.getBoundingClientRect().left + 'px',
+        top: contextMenu.virtualRef.getBoundingClientRect().top + 'px',
+        zIndex: 6000
+      }"
     >
       <div class="context-menu-list">
         <div class="context-menu-item" @click="clearChatHistory(contextMenu.friend)">清空聊天记录</div>
         <div class="context-menu-item context-menu-item-danger" @click="deleteFriend(contextMenu.friend)">删除好友</div>
         <div class="context-menu-item context-menu-item-cancel" @click="closeContextMenu">取消</div>
       </div>
-    </el-popover>
+    </div>
   </div>
   <div class="friend-list-hover-area" @mouseenter="handleFriendListEnter"></div>
 </template>
@@ -515,6 +514,8 @@ defineExpose({
   position: relative;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
 }
 .friend-list-item:not(:last-child)::after {
   content: "";
@@ -549,7 +550,8 @@ defineExpose({
   font-size: 18px;
   color: #7c4a1e;
   margin-left: 12px;
-  margin-top: -10px; /* 向上调整更多，使与头像居中 */
+  margin-top: 0; /* 去掉向上调整 */
+  line-height: 36px; /* 与头像高度一致，保证居中 */
   word-break: break-all;
   flex: 1;
   text-shadow: 1px 1px 0 #f5e1a4;
@@ -602,13 +604,17 @@ defineExpose({
   padding: 10px 24px;
   cursor: pointer;
   color: #7c4a1e;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
   user-select: none;
   text-align: center;
   border-bottom: none;
+  border-radius: 8px;
 }
 .context-menu-item:hover {
-  background: rgba(245, 225, 164, 0.25);
+  background: #a67c52;
+  color: #fff;
+  box-shadow: 0 0 8px #a67c52, 0 2px 8px rgba(0,0,0,0.10);
+  text-shadow: none;
 }
 .context-menu-item-danger {
   color: #a67c52;
