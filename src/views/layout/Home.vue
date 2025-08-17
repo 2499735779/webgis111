@@ -36,22 +36,34 @@ const rejectedFriendRequests = ref([]);
 // 梯形控件红点
 const friendTipHasUnread = ref(false);
 
-// 新增：主界面独立监听 socket 红点事件，只刷新红点
+// 新增：主界面独立监听 socket 红点事件，只刷新红点，不刷新地图等其他内容
 function setupHomeSocketFriendTip(socket) {
   // 监听未读消息
   socket.value.on('unread-updated', (data) => {
-    // 只刷新红点，不刷新其他内容
     friendTipHasUnread.value = Object.values(data).some(v => v > 0);
     console.log('[Home.vue] 红点刷新: unread-updated', friendTipHasUnread.value);
   });
   // 监听好友请求
   socket.value.on('pending-requests-updated', async () => {
-    // 拉取最新好友请求，仅用于红点判断
     const res = await axios.get('/api/received-friend-requests', {
       params: { username: user.value.username }
     });
     friendTipHasUnread.value = Array.isArray(res.data) && res.data.length > 0;
     console.log('[Home.vue] 红点刷新: pending-requests-updated', friendTipHasUnread.value);
+  });
+  // 监听好友列表变化事件
+  socket.value.on('friend-list-changed', async () => {
+    // 拉取未读事件数，仅用于红点判断
+    const res = await axios.get('/api/friend-list-events', {
+      params: { username: user.value.username }
+    });
+    friendTipHasUnread.value = (res.data && res.data.unread > 0);
+    console.log('[Home.vue] 红点刷新: friend-list-changed', friendTipHasUnread.value);
+  });
+  // 监听主动清除红点事件
+  socket.value.on('friend-list-events-read', () => {
+    friendTipHasUnread.value = false;
+    console.log('[Home.vue] 红点清除: friend-list-events-read');
   });
 }
 
@@ -111,9 +123,17 @@ onMounted(() => {
     }, { once: true });
   }
   // 初始化socket监听红点（只刷新红点，不刷新地图等其他内容）
-  if (window.friendMenuRef?.value?.socket) {
-    setupHomeSocketFriendTip(window.friendMenuRef.value.socket);
-  }
+  nextTick(() => {
+    // 兼容 socket 初始化时机
+    let tryBindSocket = () => {
+      if (window.friendMenuRef?.value?.socket) {
+        setupHomeSocketFriendTip(window.friendMenuRef.value.socket);
+      } else {
+        setTimeout(tryBindSocket, 200);
+      }
+    };
+    tryBindSocket();
+  });
   // 但主界面红点依赖的是 setupFriendListEventSocket
   // 应该确保 setupFriendListEventSocket 也被绑定
   if (window.friendMenuRef?.value?.socket && !window.friendMenuRef.value._setupFriendListEventSocket) {
