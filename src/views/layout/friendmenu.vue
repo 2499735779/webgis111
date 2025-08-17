@@ -450,239 +450,171 @@ defineExpose({
 </script>
 
 <style scoped>
+/* 1. 引入江西拙楷字体 */
+@font-face {
+  font-family: 'JiangxiZhuokai';
+  src: url('/fonts/jiangxi-zhoukai/jiangxizhuokai-Regular.woff2') format('woff2'),
+       url('/fonts/jiangxi-zhoukai/jiangxizhuokai-Regular.woff') format('woff');
+  font-display: swap;
+}
+
+/* 2. 奶油黄玉深棕渐变主色调 */
+:root {
+  --cup-bg-gradient: linear-gradient(135deg, #fdf6e3 0%, #f5e1a4 50%, #a67c52 100%);
+  --cup-border: url('/images/cuphead-border.png');
+  --cup-line: url('/images/cuphead-line.png');
+}
+
+/* 3. 好友列表整体风格 */
 .friend-list-sidebar {
   position: fixed;
   top: 0;
   left: -220px;
-  width: 220px;
+  width: 240px;
   height: 100vh;
-  background: #fff;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+  background: var(--cup-bg-gradient);
+  box-shadow: none;
+  border: none;
   z-index: 5000;
   transition: left 0.25s cubic-bezier(.4,0,.2,1);
-  border-right: 1px solid #e5e6eb;
   display: flex;
   flex-direction: column;
   pointer-events: auto;
+  /* 手绘边框 */
+  border-image: var(--cup-border) 30 stretch;
+  border-width: 18px;
+  border-style: solid;
+  /* 可选：加点粗糙滤镜 */
+  filter: contrast(1.05) brightness(1.03);
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
 }
 .friend-list-sidebar.show {
   left: 0;
 }
+
+/* 4. 标题和字体手绘风格 */
 .friend-list-title {
-  font-size: 18px;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 22px;
   font-weight: bold;
-  padding: 18px 0 12px 24px;
-  border-bottom: 1px solid #f0f0f0;
-  background: #f8f8f8;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  padding: 24px 0 12px 32px;
+  background: transparent;
+  color: #7c4a1e;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 0 #f5e1a4, 0 2px 8px #a67c52;
+  border-bottom: none;
+  /* 手绘分割线 */
+  background-image: var(--cup-line);
+  background-repeat: no-repeat;
+  background-position: bottom left;
+  background-size: 90% 12px;
 }
-.add-friend-btn {
-  margin-left: auto;
-  margin-right: 16px;
-  padding: 0;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.friend-list-empty {
-  color: #aaa;
-  text-align: center;
-  margin-top: 40px;
-}
+
+/* 5. 好友项字体和分割线 */
 .friend-list-item {
-  display: flex;
-  align-items: center;
-  padding: 12px 18px;
-  border-bottom: 1px solid #f5f5f5;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 18px;
+  color: #7c4a1e;
+  background: transparent;
+  padding: 16px 24px;
+  border-bottom: none;
+  position: relative;
   cursor: pointer;
   transition: background 0.2s;
-  position: relative;
+  /* 手绘分割线 */
+  background-image: var(--cup-line);
+  background-repeat: no-repeat;
+  background-position: bottom left;
+  background-size: 90% 10px;
 }
 .friend-list-item:hover {
-  background: #f5f7fa;
+  background: rgba(245, 225, 164, 0.25);
 }
+
+/* 6. 好友名字体 */
 .friend-list-name {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 18px;
+  color: #7c4a1e;
   margin-left: 12px;
-  font-size: 16px;
-  color: #333;
   word-break: break-all;
   flex: 1;
+  text-shadow: 1px 1px 0 #f5e1a4;
 }
+
+/* 7. 红点手绘风格 */
 .friend-unread-dot {
   display: inline-block;
-  width: 10px;
-  height: 10px;
-  background: #f56c6c;
+  width: 13px;
+  height: 13px;
+  background: #a67c52;
   border-radius: 50%;
   margin-left: 8px;
   margin-top: 2px;
+  border: 2px solid #f5e1a4;
+  box-shadow: 0 0 4px #a67c52;
 }
-.friend-list-hover-area {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 8px;
-  height: 100vh;
-  z-index: 4999;
-  background: transparent;
-  pointer-events: auto;
-}
-.friend-request-item {
-  background: #fffbe6;
-  border-left: 4px solid #f56c6c;
-  position: relative;
-}
-.friend-request-vertical-actions {
-  width: 20%;
+
+/* 8. 按钮字体 */
+.add-friend-btn {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  background: #f5e1a4;
+  color: #7c4a1e;
+  border: 2px solid #a67c52;
+  border-radius: 12px;
+  box-shadow: 2px 2px 0 #a67c52;
+  font-size: 22px;
+  padding: 0 8px;
   min-width: 32px;
-  height: 36px;
-  display: flex;
-  flex-direction: column;
-  justify-content: stretch;
-  align-items: stretch;
-  margin-left: 8px;
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
+  min-height: 32px;
+  transition: background 0.2s;
 }
-.action-accept,
-.action-reject {
-  flex: 1;
-  width: 100%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  user-select: none;
+.add-friend-btn:hover {
+  background: #a67c52;
+  color: #f5e1a4;
 }
-.action-accept {
-  background: #67c23a;
-  border-radius: 4px 4px 0 0;
-  color: #fff;
-  border-bottom: 1px solid #fff;
+
+/* 9. 其它区域字体 */
+.friend-request-item {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  background: rgba(253, 246, 227, 0.8);
+  border-left: 6px solid #a67c52;
   position: relative;
 }
-.action-accept::after {
-  content: '';
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  background: url('data:image/svg+xml;utf8,<svg fill="white" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M426.666667 725.333333l-213.333334-213.333333 60.586667-60.586667 152.746667 152.746667 322.346667-322.346667 60.586666 60.586667z"/></svg>') no-repeat center center;
-  background-size: 14px 14px;
-}
-.action-reject {
-  background: #f56c6c;
-  border-radius: 0 0 4px 4px;
-  color: #fff;
-  border-top: 1px solid #fff;
-  position: relative;
-}
-.action-reject::after {
-  content: '';
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  background: url('data:image/svg+xml;utf8,<svg fill="white" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M195.2 195.2a32 32 0 0 1 45.248 0L512 466.752l271.552-271.552a32 32 0 1 1 45.248 45.248L557.248 512l271.552 271.552a32 32 0 1 1-45.248 45.248L512 557.248l-271.552 271.552a32 32 0 1 1-45.248-45.248L466.752 512 195.2 240.448a32 32 0 0 1 0-45.248z"/></svg>') no-repeat center center;
-  background-size: 14px 14px;
-}
 
-/* 新增：添加好友弹窗居中放大 */
-.add-friend-dialog-center :deep(.el-dialog) {
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  min-width: 420px;
-  max-width: 90vw;
-}
-.add-friend-dialog-center :deep(.el-dialog__body) {
-  padding-top: 18px;
-  padding-bottom: 18px;
-}
-
-/* 新增：搜索结果横向排列并居中对齐 */
-.search-user-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  margin-top: 10px;
-  margin-bottom: 8px;
-}
-.search-user-name {
-  font-size: 18px;
-  font-weight: 500;
-  color: #333;
-  margin-left: 6px;
-  margin-right: 6px;
-  min-width: 80px;
-  text-align: left;
-  display: inline-block;
-}
-.search-user-add-btn {
-  margin-left: 8px;
-  min-width: 80px;
-}
-
-/* 新增：添加好友弹窗内容整体居中 */
-.add-friend-dialog-center-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 右键菜单样式微调 */
-:deep(.el-dropdown-menu) {
-  min-width: 120px;
-}
-
-/* 右键菜单样式 */
+/* 10. 右键菜单字体 */
 .context-menu-list {
-  display: flex;
-  flex-direction: column;
-  min-width: 120px;
-  background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  padding: 4px 0;
-  font-size: 15px;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  background: var(--cup-bg-gradient);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #a67c52;
+  padding: 8px 0;
+  font-size: 16px;
+  color: #7c4a1e;
+  border: 2px solid #a67c52;
+  border-image: var(--cup-border) 30 stretch;
 }
 .context-menu-item {
-  padding: 8px 18px;
+  padding: 10px 24px;
   cursor: pointer;
-  color: #333;
+  color: #7c4a1e;
   transition: background 0.15s;
   user-select: none;
-  text-align: center; /* 新增：文本居中 */
+  text-align: center;
+  border-bottom: none;
+  background-image: var(--cup-line);
+  background-repeat: no-repeat;
+  background-position: bottom left;
+  background-size: 90% 8px;
 }
 .context-menu-item:hover {
-  background: #f5f7fa;
+  background: rgba(245, 225, 164, 0.25);
 }
 .context-menu-item-danger {
-  color: #f56c6c;
-  border-top: 1px solid #f0f0f0;
-  margin-top: 2px;
+  color: #a67c52;
 }
 .context-menu-item-cancel {
   color: #888;
-  border-top: 1px solid #f0f0f0;
-  margin-top: 2px;
   text-align: center;
 }
-.friend-context-popover {
-  padding: 0 !important;
-  min-width: 120px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
-  border-radius: 6px !important;
-}
 </style>
-  border-radius: 6px !important;
-
