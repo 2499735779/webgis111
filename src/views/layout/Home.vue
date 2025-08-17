@@ -108,7 +108,14 @@ onMounted(() => {
   }
   // 初始化socket监听红点
   if (window.friendMenuRef?.value?.socket) {
+    // 这里绑定的是 setupSocketFriendTip
     setupSocketFriendTip(window.friendMenuRef.value.socket);
+  }
+  // 但主界面红点依赖的是 setupFriendListEventSocket
+  // 应该确保 setupFriendListEventSocket 也被绑定
+  if (window.friendMenuRef?.value?.socket && !window.friendMenuRef.value._setupFriendListEventSocket) {
+    setupFriendListEventSocket(window.friendMenuRef.value.socket);
+    window.friendMenuRef.value._setupFriendListEventSocket = true;
   }
 });
 onBeforeUnmount(() => {
