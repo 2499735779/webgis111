@@ -457,31 +457,30 @@ defineExpose({
   font-display: swap;
 }
 
-/* 2. 奶油黄玉深棕渐变主色调和分割线变量（分割线改为SVG） */
+/* 分割线变量保留，去掉边框变量 */
 :root {
-  --cup-border: url('/images/cuphead-border.png');
+  /* --cup-border: url('/images/cuphead-border.png'); */
   --cup-line: url('/fenggexian.svg');
 }
 
-/* 3. 好友列表整体风格，背景图片替换 */
+/* 好友列表整体风格，改为普通边框 */
 .friend-list-sidebar {
   position: fixed;
   top: 0;
   left: -220px;
   width: 240px;
   height: 100vh;
-  /* 替换为手绘背景图片 */
   background: url('/data/friendlistbackground.jpg') center center/cover no-repeat;
   box-shadow: none;
-  border: none;
+  /* border-image: var(--cup-border) 30 stretch; */
+  /* border-width: 18px;
+  border-style: solid; */
+  border: 2px solid #a67c52; /* 普通深棕色边框 */
   z-index: 5000;
   transition: left 0.25s cubic-bezier(.4,0,.2,1);
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  border-image: var(--cup-border) 30 stretch;
-  border-width: 18px;
-  border-style: solid;
   filter: contrast(1.05) brightness(1.03);
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
 }
@@ -579,7 +578,7 @@ defineExpose({
   position: relative;
 }
 
-/* 10. 右键菜单字体 */
+/* 10. 右键菜单字体，去掉 border-image */
 .context-menu-list {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   background: var(--cup-bg-gradient);
@@ -589,7 +588,7 @@ defineExpose({
   font-size: 16px;
   color: #7c4a1e;
   border: 2px solid #a67c52;
-  border-image: var(--cup-border) 30 stretch;
+  /* border-image: var(--cup-border) 30 stretch; */
 }
 .context-menu-item {
   padding: 10px 24px;
@@ -615,6 +614,5 @@ defineExpose({
   text-align: center;
 }
 </style>
-  text-align: center;
-}
+
 
