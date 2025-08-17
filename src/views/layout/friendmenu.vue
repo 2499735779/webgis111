@@ -470,7 +470,7 @@ defineExpose({
   left: -220px;
   width: 240px;
   height: 100vh;
-  background: url('/data/friendlistbackground.jpg') center center/cover no-repeat;
+  background: url('/friendlistbackground.jpg') center center/cover no-repeat;
   box-shadow: none;
   /* border-image: var(--cup-border) 30 stretch; */
   /* border-width: 18px;
