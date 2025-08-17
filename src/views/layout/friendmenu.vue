@@ -549,7 +549,7 @@ defineExpose({
   font-size: 18px;
   color: #7c4a1e;
   margin-left: 12px;
-  margin-top: -4px; /* 向上调整，使与头像居中 */
+  margin-top: -10px; /* 向上调整更多，使与头像居中 */
   word-break: break-all;
   flex: 1;
   text-shadow: 1px 1px 0 #f5e1a4;
