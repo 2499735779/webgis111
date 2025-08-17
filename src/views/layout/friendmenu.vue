@@ -457,25 +457,16 @@ defineExpose({
   font-display: swap;
 }
 
-/* 分割线变量保留，去掉边框变量 */
-:root {
-  /* --cup-border: url('/images/cuphead-border.png'); */
-  --cup-line: url('/fenggexian.svg');
-}
-
-/* 好友列表整体风格，改为普通边框 */
+/* 好友列表整体风格，普通边框 */
 .friend-list-sidebar {
   position: fixed;
   top: 0;
-  left: -240px; /* 修正为负宽度，完全隐藏 */
+  left: -240px;
   width: 240px;
   height: 100vh;
   background: url('/friendlistbackground.jpg') center center/cover no-repeat;
   box-shadow: none;
-  /* border-image: var(--cup-border) 30 stretch; */
-  /* border-width: 18px;
-  border-style: solid; */
-  border: 2px solid #a67c52; /* 普通深棕色边框 */
+  border: 2px solid #a67c52;
   z-index: 5000;
   transition: left 0.25s cubic-bezier(.4,0,.2,1);
   display: flex;
@@ -488,7 +479,7 @@ defineExpose({
   left: 0;
 }
 
-/* 4. 标题和字体手绘风格 */
+/* 标题分割线：柔和弯曲效果 */
 .friend-list-title {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   font-size: 22px;
@@ -498,36 +489,59 @@ defineExpose({
   color: #7c4a1e;
   letter-spacing: 2px;
   text-shadow: 2px 2px 0 #f5e1a4, 0 2px 8px #a67c52;
-  border-bottom: none;
-  /* 手绘分割线 */
-  background-image: var(--cup-line);
-  background-repeat: no-repeat;
-  background-position: bottom left;
-  background-size: 90% 24px; /* 增大高度 */
+  border-bottom: 0;
+  position: relative;
+}
+.friend-list-title::after {
+  content: "";
+  display: block;
+  width: 85%;
+  height: 0;
+  margin: 12px auto 0 auto;
+  border-bottom: 2px solid #e7cfa2;
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 2px 8px rgba(166,124,82,0.08);
+  opacity: 0.7;
 }
 
-/* 5. 好友项字体和分割线 */
+/* 好友项分割线：手绘感，略带弯曲 */
 .friend-list-item {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   font-size: 18px;
   color: #7c4a1e;
   background: transparent;
   padding: 16px 24px;
-  border-bottom: none;
+  border-bottom: 0;
   position: relative;
   cursor: pointer;
   transition: background 0.2s;
-  /* 手绘分割线 */
-  background-image: var(--cup-line);
-  background-repeat: no-repeat;
-  background-position: bottom left;
-  background-size: 90% 18px; /* 增大高度 */
 }
-.friend-list-item:hover {
-  background: rgba(245, 225, 164, 0.25);
+.friend-list-item:not(:last-child)::after {
+  content: "";
+  display: block;
+  width: 90%;
+  height: 0;
+  margin: 10px auto 0 auto;
+  border-bottom: 2px solid #e7cfa2;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 1px 6px rgba(166,124,82,0.06);
+  opacity: 0.6;
 }
 
-/* 6. 好友名字体 */
+/* 右键菜单分割线 */
+.context-menu-item:not(:last-child)::after {
+  content: "";
+  display: block;
+  width: 80%;
+  height: 0;
+  margin: 8px auto 0 auto;
+  border-bottom: 1.5px solid #e7cfa2;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 1px 4px rgba(166,124,82,0.05);
+  opacity: 0.5;
+}
+
+/* 其它样式保持不变 */
 .friend-list-name {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   font-size: 18px;
@@ -537,8 +551,6 @@ defineExpose({
   flex: 1;
   text-shadow: 1px 1px 0 #f5e1a4;
 }
-
-/* 7. 红点手绘风格 */
 .friend-unread-dot {
   display: inline-block;
   width: 13px;
@@ -550,8 +562,6 @@ defineExpose({
   border: 2px solid #f5e1a4;
   box-shadow: 0 0 4px #a67c52;
 }
-
-/* 8. 按钮字体 */
 .add-friend-btn {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   background: #f5e1a4;
@@ -569,16 +579,12 @@ defineExpose({
   background: #a67c52;
   color: #f5e1a4;
 }
-
-/* 9. 其它区域字体 */
 .friend-request-item {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   background: rgba(253, 246, 227, 0.8);
   border-left: 6px solid #a67c52;
   position: relative;
 }
-
-/* 10. 右键菜单字体，去掉 border-image */
 .context-menu-list {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   background: var(--cup-bg-gradient);
@@ -588,7 +594,6 @@ defineExpose({
   font-size: 16px;
   color: #7c4a1e;
   border: 2px solid #a67c52;
-  /* border-image: var(--cup-border) 30 stretch; */
 }
 .context-menu-item {
   padding: 10px 24px;
@@ -598,10 +603,6 @@ defineExpose({
   user-select: none;
   text-align: center;
   border-bottom: none;
-  background-image: var(--cup-line);
-  background-repeat: no-repeat;
-  background-position: bottom left;
-  background-size: 90% 12px; /* 增大高度 */
 }
 .context-menu-item:hover {
   background: rgba(245, 225, 164, 0.25);
