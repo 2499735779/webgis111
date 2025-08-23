@@ -516,6 +516,8 @@ defineExpose({
   transition: background 0.2s, color 0.2s;
   display: flex;
   align-items: center;
+  /* 保证横向排列 */
+  flex-direction: row;
 }
 .friend-list-item:not(:last-child)::after {
   content: "";
@@ -550,10 +552,14 @@ defineExpose({
   font-size: 18px;
   color: #7c4a1e;
   margin-left: 12px;
-  margin-top: 0; /* 去掉向上调整 */
-  line-height: 36px; /* 与头像高度一致，保证居中 */
-  word-break: break-all;
+  margin-top: 0;
+  line-height: 36px;
+  /* 修正：保证名称横向显示，不换行 */
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 删除 word-break: break-all; */
   text-shadow: 1px 1px 0 #f5e1a4;
 }
 .friend-unread-dot {
