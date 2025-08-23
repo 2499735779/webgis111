@@ -518,7 +518,7 @@ function removeTag(id) {
             <el-button
               type="primary"
               size="large"
-              class="cuphead-btn"
+              class="cuphead-btn-yellow cuphead-btn"
               @click="openGameTagDialog"
             >添加/修改标签</el-button>
           </div>
@@ -528,7 +528,7 @@ function removeTag(id) {
           <el-button
             type="primary"
             :loading="uploading"
-            class="cuphead-btn"
+            class="cuphead-btn-avatar cuphead-btn-yellow cuphead-btn"
             @click="triggerAvatarInput"
           >更换头像</el-button>
           <input
@@ -545,13 +545,13 @@ function removeTag(id) {
             type="success"
             v-if="selectedUser && user.username !== selectedUser.username"
             :disabled="isPending"
-            class="cuphead-btn"
+            class="cuphead-btn-yellow cuphead-btn"
             @click="friendMenuRef.value?.sendFriendRequest(selectedUser.value.username)"
           >
             {{ isPending ? '交友请求已发送' : '发送好友请求' }}
           </el-button>
           <span v-if="isRejected" class="cuphead-reject-tip">对方已拒绝，请重新发送</span>
-          <el-button type="danger" class="cuphead-btn" @click="logout">退出登录</el-button>
+          <el-button type="danger" class="cuphead-btn-danger cuphead-btn" @click="logout">退出登录</el-button>
         </div>
       </div>
     </el-dialog>
@@ -1006,6 +1006,7 @@ function removeTag(id) {
   margin: 8px 0;
   font-size: 18px !important;
   transition: background 0.2s, box-shadow 0.2s;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
 }
 .cuphead-btn-yellow:hover {
   background: linear-gradient(90deg, #f5e1a4 0%, #fffbe6 100%) !important;
@@ -1013,7 +1014,45 @@ function removeTag(id) {
   box-shadow: 0 4px 16px #e7cfa2, 0 2px 8px rgba(0,0,0,0.12);
 }
 
-/* 奶油黄游戏目录标签按钮风格 */
+/* 更换头像按钮风格（与奶油黄一致，略微加粗描边） */
+.cuphead-btn-avatar {
+  border: 3px solid #a67c52 !important;
+  box-shadow: 0 4px 16px #f5e1a4, 0 2px 8px rgba(0,0,0,0.10);
+  background: linear-gradient(90deg, #fffbe6 0%, #ffe066 100%) !important;
+  color: #a67c52 !important;
+  font-size: 18px !important;
+  border-radius: 18px !important;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+}
+
+/* 退出登录按钮风格（红色卡通描边） */
+.cuphead-btn-danger {
+  background: linear-gradient(90deg, #f56c6c 0%, #fffbe6 100%) !important;
+  color: #fff !important;
+  border-radius: 16px !important;
+  border: 2px solid #a67c52 !important;
+  font-weight: bold !important;
+  box-shadow: 0 2px 8px #f56c6c, 0 2px 8px rgba(0,0,0,0.08);
+  padding: 8px 28px !important;
+  margin: 8px 0;
+  font-size: 18px !important;
+  transition: background 0.2s, box-shadow 0.2s;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+}
+.cuphead-btn-danger:hover {
+  background: linear-gradient(90deg, #fffbe6 0%, #f56c6c 100%) !important;
+  color: #a67c52 !important;
+  box-shadow: 0 4px 16px #f56c6c, 0 2px 8px rgba(0,0,0,0.12);
+}
+
+/* 添加按钮居中容器 */
+.cuphead-btn-center {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+/* 奶油黄游戏目录标签按钮风格 - 保持不变 */
 .cuphead-game-btn {
   background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%) !important;
   color: #a67c52 !important;
@@ -1035,7 +1074,7 @@ function removeTag(id) {
   border-color: #a67c52 !important;
 }
 
-/* 游戏目录滚动容器：加宽并拉长 */
+/* 游戏目录滚动容器：加宽并拉长 - 保持不变 */
 .cuphead-game-scroll {
   max-height: 420px;
   min-height: 320px;
@@ -1057,7 +1096,7 @@ function removeTag(id) {
   border-radius: 8px;
 }
 
-/* 游戏类型字体放大 */
+/* 游戏类型字体放大 - 保持不变 */
 .cuphead-game-type {
   font-size: 22px;
   font-weight: bold;
@@ -1069,7 +1108,7 @@ function removeTag(id) {
   font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
 }
 
-/* 字体全局应用 */
+/* 字体全局应用 - 保持不变 */
 .cuphead-font, .cuphead-content-bg, .cuphead-header-bar, .cuphead-title-text, .cuphead-btn, .cuphead-tag, .cuphead-tag-empty, .el-button, .el-tag {
   font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
 }
