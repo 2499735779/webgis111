@@ -370,16 +370,16 @@ watch(() => showUserInfo.value, v => {
   if (v) fetchUserTags() 
 })
 
-// 保存标签到后端（编号数组，合并后只存标签id，数量不存）
+// 保存标签到后端（编号数组，允许重复，最多5个）
 const saveGameTags = async () => {
   if (!user.value.username) return
-  // 只存合并后的标签id，最多5个
-  const merged = getMergedTags(gameTagSelect.value).map(t => t.id).slice(0, 5)
+  // 直接保存选择的标签编号数组（允许重复），最多5个
+  const tagsToSave = gameTagSelect.value.slice(0, 5)
   await axios.post('/api/user-game-tags', {
     username: user.value.username,
-    gameTags: merged
+    gameTags: tagsToSave
   })
-  myGameTags.value = merged
+  myGameTags.value = tagsToSave
   showGameTagDialog.value = false
   ElMessage.success('游戏标签已保存')
   // 新增：保存后自动打开个人信息弹窗
