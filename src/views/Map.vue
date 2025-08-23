@@ -698,7 +698,23 @@ onMounted(() => {
       <el-button type="primary" size="large" @click="searchNearby">搜索附近游戏搭子</el-button>
     </div>
     <!-- 用户信息弹窗 -->
-    <el-dialog v-model="showUserDialog" title="用户信息" width="320px" :close-on-click-modal="true" append-to-body>
+    <el-dialog
+      v-model="showUserDialog"
+      title=""
+      width="320px"
+      :close-on-click-modal="true"
+      append-to-body
+      :wrapper-class="'user-info-cuphead-bg'"
+      :show-close="false"
+    >
+      <template #header="{ close }">
+        <div class="cuphead-header-bar">
+          <span class="cuphead-title-text">用户信息</span>
+          <button class="cuphead-close-btn" aria-label="关闭" @click="close">
+            <img src="/cross-156772.svg" alt="关闭" class="cuphead-close-svg" width="32" height="32" />
+          </button>
+        </div>
+      </template>
       <div style="text-align:center;" v-if="selectedUser">
         <el-avatar :size="80" :src="selectedUser.avatar || 'https://cdn.jsdelivr.net/gh/xiangyuecn/avatardata@main/blank-avatar.png'" style="margin-bottom: 16px;" />
         <div style="margin:16px 0;">账号：{{ selectedUser.username }}</div>
@@ -875,5 +891,78 @@ html, body, #app {
 .ol-overlaycontainer .user-marker, .ol-overlaycontainer-stopevent .user-marker {
   pointer-events: auto;
 }
+
+/* 复用 Home.vue 的主题弹窗样式 */
+.el-dialog__wrapper.user-info-cuphead-bg {
+  background: linear-gradient(135deg, #fdf6e3 0%, #f5b507 100%);
+  border-radius: 40px;
+  min-width: 320px;
+  min-height: 320px;
+  max-width: 620px;
+  max-height: 720px;
+  aspect-ratio: 1/1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 12px 48px rgba(80,60,30,0.18),
+    0 0 0 16px #c7a16b inset,
+    0 0 0 3px #7c4a1e;
+  position: relative;
+  overflow: hidden;
+}
+.el-dialog__wrapper.user-info-cuphead-bg .el-dialog {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 40px !important;
+  border: none !important;
+}
+.el-dialog__wrapper.user-info-cuphead-bg .el-dialog__body {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.cuphead-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px 0 0;
+  background: none;
+}
+.cuphead-title-text {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 28px;
+  font-weight: bold;
+  color: #a67c52;
+  margin-left: 12px;
+  margin-top: 8px;
+  text-shadow: 2px 2px 0 #f5e1a4, 0 2px 8px #a67c52;
+  user-select: none;
+}
+.cuphead-close-btn {
+  background: #fffbe6;
+  border: 2px solid #a67c52;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #a67c52, 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, box-shadow 0.2s;
+  margin-left: 12px;
+  outline: none;
+  padding: 0;
+}
+.cuphead-close-btn:hover {
+  background: #f5b507;
+  box-shadow: 0 4px 16px #a67c52, 0 2px 8px rgba(0,0,0,0.12);
+}
+.cuphead-close-svg {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
 </style>
- 
