@@ -516,19 +516,25 @@ defineExpose({
   transition: background 0.2s, color 0.2s;
   display: flex;
   align-items: center;
-  /* 保证横向排列 */
   flex-direction: row;
+  min-width: 0; /* 允许子项收缩 */
+  width: 100%;  /* 保证横向填满 */
 }
+
+/* 修正分割线位置，避免覆盖头像和文字 */
 .friend-list-item:not(:last-child)::after {
   content: "";
-  display: block;
-  width: 90%;
+  position: absolute;
+  left: 24px; /* 与头像左边距一致 */
+  right: 24px; /* 与右边距一致 */
+  bottom: 0;
   height: 0;
-  margin: 10px auto 0 auto;
   border-bottom: 2px solid #e7cfa2;
   border-radius: 0 0 12px 12px;
   box-shadow: 0 1px 6px rgba(166,124,82,0.06);
   opacity: 0.6;
+  margin: 0; /* 去掉 margin-top */
+  z-index: 1;
 }
 
 /* 鼠标悬停时变深色，字体变浅色，头像高亮 */
@@ -555,7 +561,9 @@ defineExpose({
   margin-top: 0;
   line-height: 36px;
   /* 修正：保证名称横向显示，不换行 */
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 140px; /* 可根据实际调整 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -572,6 +580,7 @@ defineExpose({
   margin-top: 2px;
   border: 2px solid #f5e1a4;
   box-shadow: 0 0 4px #a67c52;
+  flex-shrink: 0; /* 防止挤压名称 */
 }
 .add-friend-btn {
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
