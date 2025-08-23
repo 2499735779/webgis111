@@ -339,7 +339,7 @@ function onAvatarError(e) {
   avatarUrl.value = defaultAvatar;
 }
 
-const mapReady = ref(false); // 新增
+const mapReady = ref(false); // 修复 mapReady 未定义
 </script>
 
 <template>
