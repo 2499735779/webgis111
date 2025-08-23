@@ -47,7 +47,7 @@ async function refreshPendingRequests() {
     axios.get('/api/rejected-friend-requests', {
       params: { username: user.value.username }
     })
-  ]);
+  );
   pendingFriendRequests.value = pendingRes.data || [];
   rejectedFriendRequests.value = rejectedRes.data || [];
 }
@@ -338,6 +338,8 @@ onMounted(async () => {
 function onAvatarError(e) {
   avatarUrl.value = defaultAvatar;
 }
+
+const mapReady = ref(false); // 新增
 </script>
 
 <template>
