@@ -518,7 +518,7 @@ function removeTag(id) {
             <el-button
               type="primary"
               size="large"
-              class="cuphead-btn-yellow cuphead-btn"
+              class="cuphead-btn cuphead-game-btn-2d"
               @click="openGameTagDialog"
             >添加/修改标签</el-button>
           </div>
@@ -528,7 +528,7 @@ function removeTag(id) {
           <el-button
             type="primary"
             :loading="uploading"
-            class="cuphead-btn-avatar cuphead-btn-yellow cuphead-btn"
+            class="cuphead-btn cuphead-game-btn-2d cuphead-btn-avatar"
             @click="triggerAvatarInput"
           >更换头像</el-button>
           <input
@@ -545,13 +545,13 @@ function removeTag(id) {
             type="success"
             v-if="selectedUser && user.username !== selectedUser.username"
             :disabled="isPending"
-            class="cuphead-btn-yellow cuphead-btn"
+            class="cuphead-btn cuphead-game-btn-2d"
             @click="friendMenuRef.value?.sendFriendRequest(selectedUser.value.username)"
           >
             {{ isPending ? '交友请求已发送' : '发送好友请求' }}
           </el-button>
           <span v-if="isRejected" class="cuphead-reject-tip">对方已拒绝，请重新发送</span>
-          <el-button type="danger" class="cuphead-btn-danger cuphead-btn" @click="logout">退出登录</el-button>
+          <el-button type="danger" class="cuphead-btn cuphead-game-btn-2d cuphead-btn-danger" @click="logout">退出登录</el-button>
         </div>
       </div>
     </el-dialog>
@@ -1006,7 +1006,6 @@ function removeTag(id) {
   margin: 8px 0;
   font-size: 18px !important;
   transition: background 0.2s, box-shadow 0.2s;
-  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
 }
 .cuphead-btn-yellow:hover {
   background: linear-gradient(90deg, #f5e1a4 0%, #fffbe6 100%) !important;
@@ -1014,45 +1013,7 @@ function removeTag(id) {
   box-shadow: 0 4px 16px #e7cfa2, 0 2px 8px rgba(0,0,0,0.12);
 }
 
-/* 更换头像按钮风格（与奶油黄一致，略微加粗描边） */
-.cuphead-btn-avatar {
-  border: 3px solid #a67c52 !important;
-  box-shadow: 0 4px 16px #f5e1a4, 0 2px 8px rgba(0,0,0,0.10);
-  background: linear-gradient(90deg, #fffbe6 0%, #ffe066 100%) !important;
-  color: #a67c52 !important;
-  font-size: 18px !important;
-  border-radius: 18px !important;
-  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
-}
-
-/* 退出登录按钮风格（红色卡通描边） */
-.cuphead-btn-danger {
-  background: linear-gradient(90deg, #f56c6c 0%, #fffbe6 100%) !important;
-  color: #fff !important;
-  border-radius: 16px !important;
-  border: 2px solid #a67c52 !important;
-  font-weight: bold !important;
-  box-shadow: 0 2px 8px #f56c6c, 0 2px 8px rgba(0,0,0,0.08);
-  padding: 8px 28px !important;
-  margin: 8px 0;
-  font-size: 18px !important;
-  transition: background 0.2s, box-shadow 0.2s;
-  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
-}
-.cuphead-btn-danger:hover {
-  background: linear-gradient(90deg, #fffbe6 0%, #f56c6c 100%) !important;
-  color: #a67c52 !important;
-  box-shadow: 0 4px 16px #f56c6c, 0 2px 8px rgba(0,0,0,0.12);
-}
-
-/* 添加按钮居中容器 */
-.cuphead-btn-center {
-  display: flex;
-  justify-content: center;
-  margin: 12px 0;
-}
-
-/* 奶油黄游戏目录标签按钮风格 - 保持不变 */
+/* 奶油黄游戏目录标签按钮风格 */
 .cuphead-game-btn {
   background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%) !important;
   color: #a67c52 !important;
@@ -1074,7 +1035,7 @@ function removeTag(id) {
   border-color: #a67c52 !important;
 }
 
-/* 游戏目录滚动容器：加宽并拉长 - 保持不变 */
+/* 游戏目录滚动容器：加宽并拉长 */
 .cuphead-game-scroll {
   max-height: 420px;
   min-height: 320px;
@@ -1096,7 +1057,7 @@ function removeTag(id) {
   border-radius: 8px;
 }
 
-/* 游戏类型字体放大 - 保持不变 */
+/* 游戏类型字体放大 */
 .cuphead-game-type {
   font-size: 22px;
   font-weight: bold;
@@ -1108,8 +1069,125 @@ function removeTag(id) {
   font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
 }
 
-/* 字体全局应用 - 保持不变 */
+/* 字体全局应用 */
 .cuphead-font, .cuphead-content-bg, .cuphead-header-bar, .cuphead-title-text, .cuphead-btn, .cuphead-tag, .cuphead-tag-empty, .el-button, .el-tag {
   font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+}
+
+/* 茶杯头风格的2D手绘按钮 */
+.cuphead-game-btn-2d {
+  background: #fff6d0 !important;
+  color: #7c4a1e !important;
+  border: 3px solid #7c4a1e !important;
+  border-radius: 18px !important;
+  font-weight: bold !important;
+  box-shadow: 
+    0 4px 0 #7c4a1e,
+    0 6px 8px rgba(0,0,0,0.15);
+  padding: 10px 32px !important;
+  margin: 12px 0;
+  font-size: 20px !important;
+  position: relative;
+  transform: translateY(-2px);
+  transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
+  text-shadow: 1px 1px 0 #fffbe6;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+  overflow: visible;
+}
+
+.cuphead-game-btn-2d::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: -6px;
+  bottom: -6px;
+  background: transparent;
+  border: 2px dashed rgba(166, 124, 82, 0.4);
+  border-radius: 22px;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.cuphead-game-btn-2d:hover {
+  background: #ffeba0 !important;
+  color: #7c4a1e !important;
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 0 #7c4a1e,
+    0 4px 6px rgba(0,0,0,0.1);
+}
+
+.cuphead-game-btn-2d:hover::before {
+  opacity: 1;
+}
+
+.cuphead-game-btn-2d:active {
+  transform: translateY(2px);
+  box-shadow: 
+    0 0px 0 #7c4a1e,
+    0 2px 4px rgba(0,0,0,0.08);
+}
+
+/* 更换头像按钮特殊装饰 */
+.cuphead-btn-avatar {
+  background: #f5e1a4 !important;
+  border-color: #a67c52 !important;
+  position: relative;
+  padding-left: 48px !important;
+}
+
+.cuphead-btn-avatar::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  background: url('/camera-icon.svg') center/contain no-repeat;
+  /* 如果没有该图标，可以使用CSS绘制一个相机图标 */
+  filter: brightness(0.7) sepia(0.6);
+}
+
+/* 退出登录按钮危险风格 */
+.cuphead-btn-danger {
+  background: #f8d7da !important;
+  color: #721c24 !important;
+  border-color: #a12312 !important;
+  box-shadow: 
+    0 4px 0 #a12312,
+    0 6px 8px rgba(0,0,0,0.15);
+}
+
+.cuphead-btn-danger:hover {
+  background: #f1adb2 !important;
+  box-shadow: 
+    0 2px 0 #a12312,
+    0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* 添加按钮居中容器与间距 */
+.cuphead-btn-center {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0 8px 0;
+}
+
+/* 修正按钮focus状态 */
+.cuphead-game-btn-2d:focus {
+  outline: none;
+  box-shadow: 
+    0 4px 0 #7c4a1e,
+    0 6px 8px rgba(0,0,0,0.15),
+    0 0 0 2px rgba(166, 124, 82, 0.3);
+}
+
+.cuphead-btn-danger:focus {
+  box-shadow: 
+    0 4px 0 #a12312,
+    0 6px 8px rgba(0,0,0,0.15),
+    0 0 0 2px rgba(161, 35, 18, 0.3);
 }
 </style>

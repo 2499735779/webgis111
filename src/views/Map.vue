@@ -11,6 +11,7 @@ import MousePosition from './control/MousePosition.vue';
 // 新增
 import ScaleLine from './control/ScaleLine.vue';
 import OverviewMap from './control/OverviewMap.vue';
+import { allGames, getGameNameById, gameCategories, gameNameToId } from './userinformation/games.js'  // 修正导入路径
 
 // 获取当前登录用户信息
 const user = ref(JSON.parse(localStorage.getItem('user') || '{}'));
@@ -34,6 +35,8 @@ const isFriend = ref(false);
 const friends = ref([]);
 const pendingFriendRequests = ref([]);
 const mousePositionReady = ref(false);
+const selectedUserTags = ref([]) // 存储选中用户的游戏标签
+const tagColors = ['#222', '#67c23a', '#409eff', '#a259e6', '#f56c6c'] // 标签颜色映射
 
 // 新增：控制地图用户弹窗显示时右下角控件隐藏
 const setGlobalDialogVisible = window.setGlobalDialogVisible || (()=>{});
@@ -70,6 +73,26 @@ const addFriend = async (friendName) => {
   await fetchPendingFriendRequests();
 };
 
+// 统计标签出现次数
+const getTagStats = (tags) => {
+  const stats = {}
+  tags.forEach(id => {
+    stats[id] = (stats[id] || 0) + 1
+  })
+  return stats
+}
+
+// 合并标签逻辑：同一个标签出现多次，显示为一个标签，颜色随次数变化
+const getMergedTags = (tags) => {
+  if (!Array.isArray(tags)) return [];
+  const stats = getTagStats(tags)
+  return Object.entries(stats).map(([id, count]) => ({
+    id: Number(id),
+    count,
+    color: tagColors[Math.min(count - 1, tagColors.length - 1)]
+  }))
+}
+
 // 判断是否是自己或好友
 const handleUserMarkerClick = async (u, e) => {
   // 新增：测距时禁止弹窗
@@ -80,11 +103,24 @@ const handleUserMarkerClick = async (u, e) => {
   }
   console.log('[Map.vue] 正常弹窗，点击用户：', u.username, e);
   selectedUser.value = u;
+  selectedUserTags.value = []; // 重置标签
   showUserDialog.value = true;
   isSelf.value = u.username === user.value.username;
   await fetchFriends();
   await fetchPendingFriendRequests();
   isFriend.value = friends.value.includes(u.username);
+  
+  // 获取用户游戏标签
+  try {
+    const res = await axios.post('/api/user-info-batch', {
+      usernames: [u.username]
+    });
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      selectedUserTags.value = res.data[0].gameTags || [];
+    }
+  } catch (err) {
+    console.error('获取用户游戏标签失败', err);
+  }
 };
 
 // 每分钟刷新一次用户位置，仅前端展示，不上传后端
@@ -697,11 +733,11 @@ onMounted(() => {
       </div>
       <el-button type="primary" size="large" @click="searchNearby">搜索附近游戏搭子</el-button>
     </div>
-    <!-- 用户信息弹窗 -->
+    <!-- 用户信息弹窗 - 修改为茶杯头风格 -->
     <el-dialog
       v-model="showUserDialog"
       title=""
-      width="320px"
+      width="380px"
       :close-on-click-modal="true"
       append-to-body
       :wrapper-class="'user-info-cuphead-bg'"
@@ -715,24 +751,55 @@ onMounted(() => {
           </button>
         </div>
       </template>
-      <div style="text-align:center;" v-if="selectedUser">
-        <el-avatar :size="80" :src="selectedUser.avatar || 'https://cdn.jsdelivr.net/gh/xiangyuecn/avatardata@main/blank-avatar.png'" style="margin-bottom: 16px;" />
-        <div style="margin:16px 0;">账号：{{ selectedUser.username }}</div>
-        <template v-if="isSelf">
-          <div style="color:#409eff;">这是你自己</div>
-        </template>
-        <template v-else-if="isFriend">
-          <div style="color:#67c23a;">已是你的好友</div>
-        </template>
-        <template v-else>
-          <el-button
-            type="success"
-            :disabled="pendingFriendRequests && pendingFriendRequests.includes(selectedUser.username)"
-            @click="addFriend(selectedUser.username)"
-          >
-            {{ (pendingFriendRequests && pendingFriendRequests.includes(selectedUser.username)) ? '等待对方回复' : '添加好友' }}
-          </el-button>
-        </template>
+      <div class="map-user-info-content" v-if="selectedUser">
+        <div class="map-user-avatar">
+          <el-avatar :size="90" :src="selectedUser.avatar || defaultAvatar" class="map-avatar-img" />
+          <div class="map-avatar-glow"></div>
+        </div>
+        
+        <div class="map-user-name">{{ selectedUser.username }}</div>
+        
+        <!-- 新增: 用户标签区域 -->
+        <div class="map-user-tags" v-if="selectedUserTags && selectedUserTags.length > 0">
+          <div class="map-section-title">游戏标签</div>
+          <div class="map-tag-list">
+            <template v-for="tag in getMergedTags(selectedUserTags)" :key="tag.id">
+              <el-tag
+                :style="{
+                  backgroundColor: tag.color,
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  border: 'none',
+                  fontFamily: '\'JiangxiZhuokai\',cursive,sans-serif'
+                }"
+                class="map-cuphead-tag"
+              >
+                {{ getGameNameById(tag.id) }}
+                <span v-if="tag.count > 1" style="margin-left:6px;">x{{ tag.count }}</span>
+              </el-tag>
+            </template>
+          </div>
+        </div>
+        
+        <div class="map-user-status">
+          <template v-if="isSelf">
+            <div class="map-status-self">这是你自己</div>
+          </template>
+          <template v-else-if="isFriend">
+            <div class="map-status-friend">已是你的好友</div>
+          </template>
+          <template v-else>
+            <el-button
+              type="success"
+              class="map-add-friend-btn"
+              :disabled="pendingFriendRequests && pendingFriendRequests.includes(selectedUser.username)"
+              @click="addFriend(selectedUser.username)"
+            >
+              {{ (pendingFriendRequests && pendingFriendRequests.includes(selectedUser.username)) ? '等待对方回复' : '添加好友' }}
+            </el-button>
+          </template>
+        </div>
       </div>
     </el-dialog>
     <!-- 挂载控件 -->
@@ -894,27 +961,27 @@ html, body, #app {
 
 /* 复用 Home.vue 的主题弹窗样式 */
 .el-dialog__wrapper.user-info-cuphead-bg {
-  background: linear-gradient(135deg, #fdf6e3 0%, #f5b507 100%);
-  border-radius: 40px;
-  min-width: 320px;
-  min-height: 320px;
-  max-width: 620px;
-  max-height: 720px;
+  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%);
+  border-radius: 60px;
+  min-width: 340px;
+  min-height: 420px;
+  max-width: 520px;
+  max-height: 640px;
   aspect-ratio: 1/1.2;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow:
     0 12px 48px rgba(80,60,30,0.18),
-    0 0 0 16px #c7a16b inset,
-    0 0 0 3px #7c4a1e;
+    0 0 0 18px #c7a16b inset,
+    0 0 0 4px #7c4a1e;
   position: relative;
   overflow: hidden;
 }
 .el-dialog__wrapper.user-info-cuphead-bg .el-dialog {
   background: transparent !important;
   box-shadow: none !important;
-  border-radius: 40px !important;
+  border-radius: 60px !important;
   border: none !important;
 }
 .el-dialog__wrapper.user-info-cuphead-bg .el-dialog__body {
@@ -964,5 +1031,178 @@ html, body, #app {
   display: block;
   width: 32px;
   height: 32px;
+}
+
+/* 修改地图用户信息弹窗背景使整体一致 */
+.map-user-info-content {
+  background: transparent;
+  border-radius: 24px;
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 12px;
+  position: relative;
+  /* 移除阴影 */
+  box-shadow: none;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+}
+
+/* 确保弹窗背景符合茶杯头主题风格 */
+.el-dialog__wrapper.user-info-cuphead-bg {
+  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%);
+  border-radius: 60px;
+  min-width: 340px;
+  min-height: 420px;
+  max-width: 520px;
+  max-height: 640px;
+  aspect-ratio: 1/1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 12px 48px rgba(80,60,30,0.18),
+    0 0 0 18px #c7a16b inset,
+    0 0 0 4px #7c4a1e;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 调整头像发光效果，使其更协调 */
+.map-avatar-glow {
+  position: absolute;
+  left: 0; top: 0;
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  box-shadow: 0 0 24px 12px rgba(245, 181, 7, 0.8), 0 0 0 6px rgba(255, 255, 255, 0.8) inset;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 修复标题区位置 - 确保标题在内部而不是外部 */
+:deep(.user-info-cuphead-bg .el-dialog__header) {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  padding: 20px 20px 0 20px !important;
+  z-index: 10 !important;
+}
+
+/* 修复弹窗内容区域 - 增加上部距离避开标题 */
+:deep(.user-info-cuphead-bg .el-dialog__body) {
+  padding-top: 80px !important; /* 为标题留出空间 */
+  box-sizing: border-box;
+}
+
+/* 新增：恢复缺失的用户信息弹窗样式 */
+.map-user-avatar {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.map-avatar-img {
+  box-shadow: 0 0 16px #f5b507, 0 2px 8px rgba(0,0,0,0.10);
+  border: 3px solid #f5b507;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.map-user-name {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 26px;
+  font-weight: bold;
+  color: #a67c52;
+  margin: 8px 0;
+  text-shadow: 1px 1px 0 #f5e1a4, 0 2px 4px #a67c52;
+}
+
+.map-user-status {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.map-status-self, .map-status-friend {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 18px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-weight: bold;
+}
+
+.map-status-self {
+  color: #409eff;
+  background: rgba(64,158,255,0.1);
+  border: 2px solid #409eff;
+}
+
+.map-status-friend {
+  color: #67c23a;
+  background: rgba(103,194,58,0.1);
+  border: 2px solid #67c23a;
+}
+
+.map-add-friend-btn {
+  background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%) !important;
+  color: #a67c52 !important;
+  border-radius: 16px !important;
+  border: 2px solid #a67c52 !important;
+  font-weight: bold !important;
+  box-shadow: 0 2px 8px rgba(166,124,82,0.12);
+  padding: 10px 20px !important;
+  font-size: 16px !important;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.map-add-friend-btn:hover:not(:disabled) {
+  background: linear-gradient(90deg, #f5e1a4 0%, #ffe066 100%) !important;
+  box-shadow: 0 4px 16px rgba(166,124,82,0.18);
+}
+
+.map-add-friend-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* 标签样式 */
+.map-user-tags {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.map-section-title {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 20px;
+  font-weight: bold;
+  color: #7c4a1e;
+  margin-bottom: 10px;
+  text-align: center;
+  text-shadow: 1px 1px 0 #f5e1a4;
+  letter-spacing: 1px;
+}
+
+.map-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.map-cuphead-tag {
+  border-radius: 16px !important;
+  box-shadow: 0 2px 8px rgba(166,124,82,0.10);
+  font-size: 16px !important;
+  padding: 6px 16px !important;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+  border: none !important;
+  font-weight: bold !important;
 }
 </style>
