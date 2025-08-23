@@ -47,7 +47,7 @@ async function refreshPendingRequests() {
     axios.get('/api/rejected-friend-requests', {
       params: { username: user.value.username }
     })
-  );
+  ]);
   pendingFriendRequests.value = pendingRes.data || [];
   rejectedFriendRequests.value = rejectedRes.data || [];
 }
@@ -114,24 +114,6 @@ onMounted(async () => {
   });
   // 监听聊天消息
   homeSocket.value.on('chat-message', (msg) => {});
-  // 初始化socket监听红点（只刷新红点，不刷新地图等其他内容）
-  nextTick(() => {
-    // 兼容 socket 初始化时机
-    let tryBindSocket = () => {
-      if (window.friendMenuRef?.value?.socket) {
-        setupHomeSocketFriendTip(window.friendMenuRef.value.socket);
-      } else {
-        setTimeout(tryBindSocket, 200);
-      }
-    };
-    tryBindSocket();
-  });
-  // 但主界面红点依赖的是 setupFriendListEventSocket
-  // 应该确保 setupFriendListEventSocket 也被绑定
-  if (window.friendMenuRef?.value?.socket && !window.friendMenuRef.value._setupFriendListEventSocket) {
-    setupFriendListEventSocket(window.friendMenuRef.value.socket);
-    window.friendMenuRef.value._setupFriendListEventSocket = true;
-  }
 });
 onBeforeUnmount(() => {
   // 解绑事件
@@ -307,21 +289,6 @@ function onUserAvatarClick() {
 const friendMenuVisible = computed(() => {
   return !!(friendMenuRef.value && friendMenuRef.value.showFriendList);
 });
-
-// 新增：socket监听未读消息和好友请求，动态控制红点
-function setupSocketFriendTip(socket) {
-  // 监听未读消息
-  socket.value.on('unread-updated', (data) => {
-    checkFriendTipUnread(data, lastFriendReqs);
-  });
-  // 监听好友请求
-  socket.value.on('pending-requests-updated', async () => {
-    const res = await axios.get('/api/received-friend-requests', {
-      params: { username: user.value.username }
-    });
-    checkFriendTipUnread(lastUnreadMap, res.data || []);
-  });
-}
 
 // 页面初始化时拉取一次未读消息和好友请求，保证红点初始状态正确
 onMounted(async () => {
