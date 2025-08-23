@@ -283,6 +283,7 @@ app.post('/api/user-avatar', async (req, res) => {
     res.json(users.map(u => ({
       username: u.username,
       avatar: u.avatarThumb || u.avatar || '', // 优先返回缩略图URL
+      gameTags: u.gameTags || []
     })));
   });
 
@@ -516,6 +517,17 @@ app.post('/api/user-avatar', async (req, res) => {
     );
     res.json({ success: true });
   });
+
+  // 新增：保存用户游戏标签
+app.post('/api/user-game-tags', async (req, res) => {
+  const { username, gameTags } = req.body;
+  if (!username || !Array.isArray(gameTags)) return res.json({ success: false, message: '参数错误' });
+  await db.collection('users').updateOne(
+    { username },
+    { $set: { gameTags: gameTags.slice(0, 5) } }
+  );
+  res.json({ success: true });
+});
 
   // 启动 HTTPS 服务，监听 443 端口
   const port = 443;

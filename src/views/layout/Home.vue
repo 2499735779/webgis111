@@ -11,6 +11,8 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios';
 import { useRoute } from 'vue-router';
 import { useSocket } from '@/utils/usesocket'; // 新增
+import { ElMessage } from 'element-plus'
+import { allGames, getGameNameById, gameCategories, gameNameToId } from '../userinformation/games.js'
 
 // 全局事件总线用于跨组件通信
 const globalDialogVisible = ref(false);
@@ -307,6 +309,83 @@ function onAvatarError(e) {
 }
 
 const mapReady = ref(false); // 修复 mapReady 未定义
+
+// 游戏标签相关（编号存储）
+const myGameTags = ref([]) // 当前用户已选标签（编号数组）
+const showGameTagDialog = ref(false)
+const gameTagSelect = ref([]) // 选择过程中的标签编号数组
+
+// 标签颜色映射
+const tagColors = ['#222', '#67c23a', '#409eff', '#a259e6', '#f56c6c']
+const tagColorNames = ['黑色', '绿色', '蓝色', '紫色', '红色']
+
+// 统计标签出现次数
+const getTagStats = (tags) => {
+  const stats = {}
+  tags.forEach(id => {
+    stats[id] = (stats[id] || 0) + 1
+  })
+  return stats
+}
+
+// 合并标签逻辑：同一个标签出现多次，显示为一个标签，颜色随次数变化
+const getMergedTags = (tags) => {
+  const stats = getTagStats(tags)
+  return Object.entries(stats).map(([id, count]) => ({
+    id: Number(id),
+    count,
+    color: tagColors[Math.min(count - 1, tagColors.length - 1)],
+    colorName: tagColorNames[Math.min(count - 1, tagColorNames.length - 1)]
+  }))
+}
+
+// 拉取用户标签（编号数组）
+const fetchUserTags = async () => {
+  if (!user.value.username) return
+  const res = await axios.post('/api/user-info-batch', { usernames: [user.value.username] })
+  if (Array.isArray(res.data) && res.data.length > 0) {
+    myGameTags.value = res.data[0].gameTags || []
+  }
+}
+watch(() => showUserInfo.value, v => { if (v) fetchUserTags() })
+
+// 保存标签到后端（编号数组，合并后只存标签id，数量不存）
+const saveGameTags = async () => {
+  if (!user.value.username) return
+  // 只存合并后的标签id，最多5个
+  const merged = getMergedTags(gameTagSelect.value).map(t => t.id).slice(0, 5)
+  await axios.post('/api/user-game-tags', {
+    username: user.value.username,
+    gameTags: merged
+  })
+  myGameTags.value = merged
+  showGameTagDialog.value = false
+  ElMessage.success('游戏标签已保存')
+}
+
+// 打开标签选择框（自动关闭个人信息弹窗）
+const openGameTagDialog = () => {
+  gameTagSelect.value = [...myGameTags.value]
+  showUserInfo.value = false
+  nextTick(() => {
+    showGameTagDialog.value = true
+  })
+}
+
+// 选择标签（允许重复选择）
+const handleTagSelect = (id) => {
+  if (gameTagSelect.value.length < 5) {
+    gameTagSelect.value.push(id)
+  }
+}
+
+// 删除标签（下方标签位点击可移除一个）
+const removeTag = (id) => {
+  const idx = gameTagSelect.value.lastIndexOf(id)
+  if (idx !== -1) {
+    gameTagSelect.value.splice(idx, 1)
+  }
+}
 </script>
 
 <template>
@@ -344,11 +423,11 @@ const mapReady = ref(false); // 修复 mapReady 未定义
     <el-dialog
       v-model="showUserInfo"
       title="个人信息"
-      width="320px"
+      width="620px"
       :close-on-click-modal="true"
       :modal="true"
       append-to-body
-      class="user-info-dialog"
+      class="user-info-dialog cuphead-bg"
       :z-index="4100"
       @open="onUserInfoDialogOpen"
       @close="handleDialogClose"
@@ -356,7 +435,7 @@ const mapReady = ref(false); // 修复 mapReady 未定义
       :show-close="true"
     >
       <template #header="{ close }">
-        <span>个人信息</span>
+        <span style="font-family:'JiangxiZhuokai',cursive,sans-serif;font-size:28px;font-weight:bold;">英雄信息</span>
         <el-button
           class="el-dialog__headerbtn"
           aria-label="Close"
@@ -366,13 +445,51 @@ const mapReady = ref(false); // 修复 mapReady 未定义
           <i class="el-dialog__close el-icon el-icon-close"></i>
         </el-button>
       </template>
-      <div style="text-align:center;">
-        <el-avatar :size="80" :src="avatarUrl" style="margin-bottom: 16px;" />
-        <div style="margin:16px 0;">账号：{{ user.username }}</div>
-        <div style="margin:10px 0;">
+      <div class="cuphead-content-bg" style="text-align:center;font-family:'JiangxiZhuokai',cursive,sans-serif;">
+        <el-avatar :size="100" :src="avatarUrl" style="margin-bottom: 24px;" />
+        <div style="margin:24px 0;font-size:26px;font-family:'JiangxiZhuokai',cursive,sans-serif;font-weight:bold;">
+          角色名称：{{ user.username }}
+        </div>
+        <!-- 我的游戏标签板块 -->
+        <div style="margin:18px 0 0 0;padding:18px 0 0 0;border-top:1px solid #eee;">
+          <div style="font-family:'JiangxiZhuokai',cursive,sans-serif;font-weight:bold;font-size:22px;margin-bottom:12px;">我的游戏标签</div>
+          <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:10px;">
+            <template v-for="tag in getMergedTags(myGameTags)" :key="tag.id">
+              <el-tag
+                :style="{
+                  backgroundColor: tag.color,
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '18px',
+                  border: 'none',
+                  fontFamily: '\'JiangxiZhuokai\',cursive,sans-serif'
+                }"
+              >
+                {{ getGameNameById(tag.id) }}
+                <span v-if="tag.count > 1" style="margin-left:6px;">x{{ tag.count }}</span>
+              </el-tag>
+            </template>
+            <template v-for="n in (5 - myGameTags.length)" :key="'empty-'+n">
+              <el-tag
+                type="info"
+                style="background:#eee;color:#aaa;font-size:18px;border:none;font-family:'JiangxiZhuokai',cursive,sans-serif;"
+              >空</el-tag>
+            </template>
+          </div>
+          <div style="text-align:center;">
+            <el-button
+              type="primary"
+              size="large"
+              style="font-size:18px;font-family:'JiangxiZhuokai',cursive,sans-serif;"
+              @click="openGameTagDialog"
+            >添加/修改标签</el-button>
+          </div>
+        </div>
+        <div style="margin:18px 0;">
           <el-button
             type="primary"
             :loading="uploading"
+            style="font-size:18px;font-family:'JiangxiZhuokai',cursive,sans-serif;"
             @click="triggerAvatarInput"
           >更换头像</el-button>
           <input
@@ -388,12 +505,65 @@ const mapReady = ref(false); // 修复 mapReady 未定义
           type="success"
           v-if="selectedUser && user.username !== selectedUser.username"
           :disabled="isPending"
+          style="font-size:18px;font-family:'JiangxiZhuokai',cursive,sans-serif;"
           @click="friendMenuRef.value?.sendFriendRequest(selectedUser.value.username)"
         >
           {{ isPending ? '交友请求已发送' : '发送好友请求' }}
         </el-button>
-        <span v-if="isRejected" style="color:#f56c6c;font-size:13px;margin-left:8px;">对方已拒绝，请重新发送</span>
-        <el-button type="danger" @click="logout">退出登录</el-button>
+        <span v-if="isRejected" style="color:#f56c6c;font-size:16px;margin-left:8px;font-family:'JiangxiZhuokai',cursive,sans-serif;">对方已拒绝，请重新发送</span>
+        <el-button type="danger" style="font-size:18px;font-family:'JiangxiZhuokai',cursive,sans-serif;" @click="logout">退出登录</el-button>
+      </div>
+    </el-dialog>
+    <!-- 游戏标签选择弹窗 -->
+    <el-dialog
+      v-model="showGameTagDialog"
+      title="选择你喜欢的游戏（可以重复选择哦！）"
+      width="620px"
+      append-to-body
+      :close-on-click-modal="true"
+    >
+      <!-- 标签位展示区 -->
+      <div style="display:flex;justify-content:center;align-items:center;margin-bottom:18px;gap:12px;">
+        <template v-for="tag in getMergedTags(gameTagSelect)" :key="tag.id">
+          <el-tag
+            :style="{
+              backgroundColor: tag.color,
+              color: '#fff',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              cursor: 'pointer',
+              border: 'none'
+            }"
+            @click="removeTag(tag.id)"
+          >
+            {{ getGameNameById(tag.id) }}
+            <span v-if="tag.count > 1" style="margin-left:6px;">x{{ tag.count }}</span>
+          </el-tag>
+        </template>
+        <template v-for="n in (5 - gameTagSelect.length)" :key="'empty-'+n">
+          <el-tag
+            type="info"
+            style="background:#eee;color:#aaa;font-size:16px;border:none;"
+          >空</el-tag>
+        </template>
+      </div>
+      <!-- 分类选择区 -->
+      <div v-for="cat in gameCategories" :key="cat.type" style="margin-bottom:12px;">
+        <div style="font-weight:bold;margin-bottom:6px;">{{ cat.type }}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <el-button
+            v-for="game in cat.games"
+            :key="game"
+            :type="'default'"
+            style="margin:4px 0;"
+            @click="handleTagSelect(gameNameToId[game])"
+            :disabled="gameTagSelect.length >= 5"
+          >{{ game }}</el-button>
+        </div>
+      </div>
+      <div style="margin-top:18px;text-align:right;">
+        <el-button type="primary" @click="saveGameTags">保存</el-button>
+        <el-button @click="showGameTagDialog = false">取消</el-button>
       </div>
     </el-dialog>
     <MessageDialog
@@ -424,7 +594,7 @@ const mapReady = ref(false); // 修复 mapReady 未定义
   </div>
 </template>
 
-<style scoped>
+<style>
 .home-root {
   position: fixed;
   left: 0;
@@ -556,5 +726,66 @@ const mapReady = ref(false); // 修复 mapReady 未定义
 :deep(.ol-viewport),
 :deep(.ol-unselectable) {
   z-index: 0 !important;
+}
+
+/* 复古橡胶管动画风格用户信息弹窗背景，纯CSS矢量风格 */
+.cuphead-bg ::v-deep(.el-dialog__wrapper) {
+  background:
+    linear-gradient(135deg, #fdf6e3 0%, #c7a16b 100%);
+  border-radius: 32px;
+  min-width: 520px;
+  min-height: 520px;
+  max-width: 620px;
+  max-height: 620px;
+  aspect-ratio: 1/1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 8px 32px rgba(80,60,30,0.18),
+    0 0 0 12px #c7a16b inset,
+    0 0 0 2px #7c4a1e;
+  position: relative;
+  overflow: hidden;
+}
+.cuphead-bg ::v-deep(.el-dialog__wrapper)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.08) 0px, rgba(255,255,255,0.08) 2px, transparent 4px, transparent 16px),
+    repeating-linear-gradient(45deg, rgba(200,180,140,0.07) 0px, rgba(200,180,140,0.07) 1px, transparent 3px, transparent 12px);
+  opacity: 0.7;
+}
+.cuphead-bg ::v-deep(.el-dialog__wrapper)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  /* 缺角：左上、右下 */
+  clip-path: polygon(
+    0 0, 40px 0, 0 40px, 0 0,
+    100% 0, calc(100% - 40px) 0, 100% 40px, 100% 0,
+    100% 100%, calc(100% - 40px) 100%, 100% calc(100% - 40px), 100% 100%,
+    0 100%, 40px 100%, 0 calc(100% - 40px), 0 100%
+  );
+  background:
+    radial-gradient(circle at 0 0, #7c4a1e 0px, #7c4a1e 18px, transparent 40px),
+    radial-gradient(circle at 100% 100%, #7c4a1e 0px, #7c4a1e 18px, transparent 40px),
+    /* 胶片磨损点缀 */
+    radial-gradient(circle at 100% 0, #a67c52 0px, #a67c52 10px, transparent 24px),
+    radial-gradient(circle at 0 100%, #a67c52 0px, #a67c52 10px, transparent 24px);
+  opacity: 0.5;
+}
+.cuphead-bg ::v-deep(.el-dialog) {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+.cuphead-bg ::v-deep(.el-dialog__body) {
+  background: transparent !important;
 }
 </style>
