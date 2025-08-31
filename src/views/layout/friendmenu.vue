@@ -15,19 +15,35 @@
       <el-skeleton v-if="loadingFriends" :rows="6" animated />
       <div v-else>
         <div v-if="friends.length === 0 && friendRequests.length === 0" class="friend-list-empty">暂无好友</div>
-        <!-- 新UI：收到的好友请求 -->
+        <!-- 好友请求项 -->
         <div
           v-for="req in friendRequests"
           :key="'req-' + req.from"
           class="friend-list-item friend-request-item"
         >
-          <el-avatar :size="36" :src="req.avatar || defaultAvatar" />
-          <span class="friend-list-name">{{ req.from }}</span>
-          <div class="friend-request-vertical-actions">
-            <div class="action-accept" @click="handleRequest(req.from, true)" title="同意"></div>
-            <div class="action-reject" @click="handleRequest(req.from, false)" title="拒绝"></div>
+          <div class="friend-request-info">
+            <el-avatar :size="36" :src="req.avatar || defaultAvatar" />
+            <span class="friend-list-name">{{ req.from }}</span>
+          </div>
+          <!-- 修改：调整按钮容器的样式，增加右边距，并确保中轴线对齐 -->
+          <div class="friend-request-actions-vertical">
+            <el-button 
+              type="success" 
+              size="small" 
+              class="action-btn action-accept" 
+              @click.stop="handleRequest(req.from, true)"
+              title="同意"
+            >同意</el-button>
+            <el-button 
+              type="danger" 
+              size="small" 
+              class="action-btn action-reject" 
+              @click.stop="handleRequest(req.from, false)"
+              title="拒绝"
+            >拒绝</el-button>
           </div>
         </div>
+        <!-- 好友列表项 -->
         <div
           v-for="f in friends"
           :key="f.username"
@@ -624,39 +640,67 @@ defineExpose({
   background: rgba(253, 246, 227, 0.8);
   border-left: 6px solid #a67c52;
   position: relative;
-}
-.context-menu-list {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  background: var(--cup-bg-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px #a67c52;
-  padding: 8px 0;
-  font-size: 16px;
-  color: #7c4a1e;
-  border: 2px solid #a67c52;
+  margin: 8px 0;
+  transition: background 0.2s, transform 0.2s;
 }
-.context-menu-item {
-  padding: 10px 24px;
-  cursor: pointer;
-  color: #7c4a1e;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-  user-select: none;
-  text-align: center;
-  border-bottom: none;
-  border-radius: 8px;
+.friend-request-item:hover {
+  background: rgba(166, 124, 82, 0.1);
+  transform: translateY(-2px);
 }
-.context-menu-item:hover {
-  background: #a67c52;
-  color: #fff;
-  box-shadow: 0 0 8px #a67c52, 0 2px 8px rgba(0,0,0,0.10);
-  text-shadow: none;
+.friend-request-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
 }
-.context-menu-item-danger {
-  color: #a67c52;
+
+.friend-request-actions-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 12px; /* 增加左边距，将按钮组向右移动 */
+  width: 54px; /* 固定宽度 */
+  align-items: center; /* 确保按钮在容器中居中对齐 */
 }
-.context-menu-item-cancel {
-  color: #888;
-  text-align: center;
+
+.action-btn {
+  padding: 2px !important;
+  height: 28px !important; /* 固定高度 */
+  min-height: 28px !important;
+  width: 100% !important; /* 使用100%宽度填充父容器 */
+  border-radius: 8px !important; /* 长方形圆角 */
+  font-size: 13px !important;
+  font-weight: bold !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid #fff;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+.action-accept {
+  background: #67c23a !important;
+  border-color: #529b2e !important;
+}
+.action-accept:hover {
+  background: #529b2e !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+.action-reject {
+  background: #f56c6c !important;
+  border-color: #e64242 !important;
+}
+.action-reject:hover {
+  background: #e64242 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* 茶杯头风格：整体弹窗 */

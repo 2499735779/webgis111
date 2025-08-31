@@ -79,14 +79,22 @@ const fetchUnread = async () => {
 
 // 处理好友请求（与消息模块通常无直接关系，可在其它文件维护）
 const handleRequest = async (msg, accept) => {
-  console.debug('[DEBUG] handleRequest:', msg, accept)
+  console.debug('[DEBUG] handleRequest:', msg, accept);
+  // 修复：确保传递正确的参数
   await axios.post('/api/handle-friend-request', {
     username: user.value.username,
-    from: msg.from,
+    from: typeof msg === 'string' ? msg : msg.from, // 支持直接传入用户名或消息对象
     accept
-  })
-  await fetchFriends()
-  await fetchMessages(selectedFriend.value)
+  });
+  await fetchFriends();
+  // 更新好友请求列表
+  if (typeof fetchFriendRequests === 'function') {
+    await fetchFriendRequests();
+  }
+  // 如果当前在聊天，刷新聊天记录
+  if (selectedFriend.value) {
+    await fetchMessages(selectedFriend.value);
+  }
 }
 
 // ---------------------------
@@ -264,11 +272,14 @@ watch(() => selectedFriend.value, (newVal) => {
             <div class="msg-bubble" v-if="msg.type !== 'friend-request'">
               {{ msg.content }}
             </div>
+            <!-- 修改：调整好友请求消息中按钮的布局，确保对齐 -->
             <div class="msg-bubble friend-request" v-else>
-              <div>[好友请求] {{ msg.from }} 请求加你为好友</div>
-              <div class="request-buttons">
-                <button class="cuphead-btn accept" @click="handleRequest(msg, true)">同意</button>
-                <button class="cuphead-btn reject" @click="handleRequest(msg, false)">拒绝</button>
+              <div class="friend-request-content">
+                <div>[好友请求] {{ msg.from }} 请求加你为好友</div>
+              </div>
+              <div class="request-buttons-vertical">
+                <button class="cuphead-btn accept" @click.stop="handleRequest(msg, true)">同意</button>
+                <button class="cuphead-btn reject" @click.stop="handleRequest(msg, false)">拒绝</button>
               </div>
             </div>
           </div>
@@ -475,23 +486,37 @@ watch(() => selectedFriend.value, (newVal) => {
   background: var(--cuphead-bg);
 }
 
+/* 修改：好友请求消息样式，增加水平布局 */
 .msg-bubble.friend-request {
   background: var(--cuphead-bg-light);
   border-color: var(--cuphead-accent);
   padding-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-/* 好友请求按钮 */
-.request-buttons {
+.friend-request-content {
+  flex: 1;
+}
+
+/* 修改：垂直排列的按钮样式，调整为等高等宽 */
+.request-buttons-vertical {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
+  flex-direction: column;
+  justify-content: center;
   gap: 8px;
+  z-index: 10;  /* 提高层级确保按钮可点击 */
+  min-width: 64px; /* 略微增加宽度 */
+  width: 64px; /* 固定宽度 */
+  margin-left: 10px; /* 增加与左侧内容的间距 */
+  align-items: center; /* 确保按钮在容器中居中对齐 */
 }
 
 .cuphead-btn {
-  padding: 6px 14px;
-  border-radius: 12px;
+  width: 100%; /* 使用100%宽度填充父容器 */
+  height: 32px; /* 固定高度 */
+  border-radius: 8px;
   font-weight: bold;
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
   font-size: 14px;
@@ -499,61 +524,49 @@ watch(() => selectedFriend.value, (newVal) => {
   border: 2px solid;
   transition: all 0.2s;
   outline: none;
+  position: relative;  /* 确保按钮层级正确 */
+  z-index: 15;  /* 高于其他元素 */
+  text-align: center;
+  line-height: 28px; /* 文字垂直居中 */
+  padding: 0; /* 移除内边距 */
+  letter-spacing: 1px; /* 字间距 */
+  box-sizing: border-box; /* 确保边框被包含在宽度内 */
 }
 
 .cuphead-btn.accept {
   background: #67c23a;
   color: white;
   border-color: #529b2e;
+  box-shadow: 0 2px 0 #529b2e;
 }
 
 .cuphead-btn.accept:hover {
-  background: #529b2e;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background: #85ce61;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 #529b2e;
+}
+
+.cuphead-btn.accept:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 0 #529b2e;
 }
 
 .cuphead-btn.reject {
   background: #f56c6c;
   color: white;
   border-color: #e64242;
+  box-shadow: 0 2px 0 #e64242;
 }
 
 .cuphead-btn.reject:hover {
-  background: #e64242;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background: #f78989;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 #e64242;
 }
 
-/* 消息气泡小三角 */
-.msg-bubble::before {
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: -10px;
-  border: 8px solid transparent;
-  border-right-color: var(--cuphead-accent);
-}
-
-.msg-bubble::after {
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: -7px;
-  border: 8px solid transparent;
-  border-right-color: #fff;
-}
-
-.cuphead-msg-item.self .msg-bubble::before {
-  left: auto;
-  right: -10px;
-  border-right-color: transparent;
-  border-left-color: var(--cuphead-accent);
-}
-
-.cuphead-msg-item.self .msg-bubble::after {
-  left: auto;
-  right: -7px;
-  border-right-color: transparent;
-  border-left-color: var(--cuphead-bg);
+.cuphead-btn.reject:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 0 #e64242;
 }
 
 /* 信纸风格输入框 */
