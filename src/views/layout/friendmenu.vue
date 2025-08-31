@@ -46,45 +46,65 @@
         </div>
       </div>
     </el-scrollbar>
-    <!-- 修改：添加好友弹窗放大并居中，搜索结果横向排列 -->
+    <!-- 修改：添加好友弹窗替换为茶杯头风格 -->
     <el-dialog
       v-model="showAddFriendDialog"
-      title="添加好友"
+      title=""
       width="420px"
       append-to-body
       align-center
-      class="add-friend-dialog-center"
+      class="add-friend-dialog-center cuphead-dialog"
       :modal="true"
       :close-on-click-modal="true"
+      :show-close="false"
     >
-      <!-- 新增：整体居中 -->
-      <div class="add-friend-dialog-center-content">
-        <el-input
-          v-model="searchName"
-          placeholder="输入用户名搜索"
-          clearable
-          @keyup.enter="searchUser"
-          style="margin-bottom: 16px;"
-        />
-        <el-button type="primary" @click="searchUser" style="margin-bottom: 18px;">搜索</el-button>
-        <div v-if="searchResult !== null">
-          <div v-if="searchResult && searchResult.username" class="search-user-row">
-            <el-avatar :size="48" :src="searchResult.avatar || defaultAvatar" />
-            <span class="search-user-name">{{ searchResult.username }}</span>
-            <el-button
-              type="success"
-              size="small"
-              class="search-user-add-btn"
-              :disabled="searchResult.username === user.username || isFriend(searchResult.username) || isPending(searchResult.username)"
-              @click="addFriendBySearch(searchResult.username)"
-            >
-              <template v-if="searchResult.username === user.username">自己</template>
-              <template v-else-if="isFriend(searchResult.username)">已是好友</template>
-              <template v-else-if="isPending(searchResult.username)">已发送请求</template>
-              <template v-else>添加</template>
-            </el-button>
+      <template #header="{ close }">
+        <div class="cuphead-header-bar">
+          <span class="cuphead-title-text">添加好友</span>
+          <button class="cuphead-close-btn" aria-label="关闭" @click="close">
+            <img src="/cross-156772.svg" alt="关闭" class="cuphead-close-svg" width="28" height="28" />
+          </button>
+        </div>
+      </template>
+      <!-- 新增：整体茶杯头风格 -->
+      <div class="cuphead-dialog-content">
+        <div class="cuphead-search-container">
+          <el-input
+            v-model="searchName"
+            placeholder="输入用户名搜索"
+            clearable
+            @keyup.enter="searchUser"
+            class="cuphead-search-input"
+          >
+            <template #prefix>
+              <i class="el-icon-search">🔍</i>
+            </template>
+          </el-input>
+          <button class="cuphead-search-btn" @click="searchUser">搜索</button>
+        </div>
+        <div v-if="searchResult !== null" class="cuphead-search-result">
+          <div v-if="searchResult && searchResult.username" class="cuphead-user-card">
+            <div class="cuphead-avatar-container">
+              <el-avatar :size="64" :src="searchResult.avatar || defaultAvatar" class="cuphead-avatar" />
+            </div>
+            <div class="cuphead-user-info">
+              <span class="cuphead-username">{{ searchResult.username }}</span>
+              <button
+                class="cuphead-add-btn"
+                :disabled="searchResult.username === user.username || isFriend(searchResult.username) || isPending(searchResult.username)"
+                @click="addFriendBySearch(searchResult.username)"
+              >
+                <template v-if="searchResult.username === user.username">这是你自己</template>
+                <template v-else-if="isFriend(searchResult.username)">已是好友</template>
+                <template v-else-if="isPending(searchResult.username)">已发送请求</template>
+                <template v-else>添加好友</template>
+              </button>
+            </div>
           </div>
-          <div v-else style="color:#f56c6c;text-align:center;">未找到该用户</div>
+          <div v-else class="cuphead-no-result">
+            <div class="cuphead-no-result-icon">🔍</div>
+            <div class="cuphead-no-result-text">未找到该用户</div>
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -637,6 +657,312 @@ defineExpose({
 .context-menu-item-cancel {
   color: #888;
   text-align: center;
+}
+
+/* 茶杯头风格：整体弹窗 */
+.cuphead-dialog {
+  /* 背景渐变 */
+  background: linear-gradient(135deg, #f5f0e1 0%, #e8d1a0 100%);
+  /* 边框阴影 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  /* 圆角 */
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* 茶杯头风格：头部 */
+.cuphead-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%);
+  border-bottom: 2px solid #a67c52;
+  border-radius: 24px 24px 0 0;
+}
+
+/* 茶杯头风格：标题文本 */
+.cuphead-title-text {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 24px;
+  font-weight: bold;
+  color: #7c4a1e;
+  text-shadow: 1px 1px 0 #f5e1a4, 0 2px 4px rgba(166, 124, 82, 0.4);
+}
+
+/* 茶杯头风格：关闭按钮 */
+.cuphead-close-btn {
+  background: #fffbe6;
+  border: 2px solid #a67c52;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0;
+}
+
+.cuphead-close-btn:hover {
+  background: #ffeba0;
+  transform: scale(1.1);
+}
+
+/* 茶杯头风格：内容区域 */
+.cuphead-dialog-content {
+  background: #f5e1a4;
+  padding: 24px;
+  border-radius: 0 0 24px 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* 茶杯头风格：搜索容器 */
+.cuphead-search-container {
+  display: flex;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+/* 茶杯头风格：搜索输入框 */
+.cuphead-search-input {
+  flex: 1;
+}
+
+:deep(.cuphead-search-input .el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.8);
+  border: 2px solid #a67c52;
+  border-radius: 12px;
+  box-shadow: none !important;
+}
+
+:deep(.cuphead-search-input .el-input__inner) {
+  color: #7c4a1e;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 16px;
+}
+
+/* 茶杯头风格：搜索按钮 */
+.cuphead-search-btn {
+  background: #fffbe6;
+  color: #7c4a1e;
+  border: 2px solid #a67c52;
+  border-radius: 12px;
+  font-weight: bold;
+  padding: 0 16px;
+  font-size: 16px;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 0 #a67c52;
+}
+
+.cuphead-search-btn:hover {
+  background: #ffeba0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 #a67c52;
+}
+
+.cuphead-search-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 0 0 #a67c52;
+}
+
+.cuphead-search-result {
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid #a67c52;
+  border-radius: 16px;
+  padding: 16px;
+  min-height: 120px;
+}
+
+.cuphead-user-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.cuphead-avatar-container {
+  position: relative;
+}
+
+.cuphead-avatar {
+  border: 3px solid #a67c52;
+  box-shadow: 0 0 0 2px #fffbe6, 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cuphead-user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cuphead-username {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 20px;
+  font-weight: bold;
+  color: #7c4a1e;
+  text-shadow: 1px 1px 0 #fffbe6;
+}
+
+/* 茶杯头风格：添加按钮 */
+.cuphead-add-btn {
+  background: #fffbe6;
+  color: #7c4a1e;
+  border: 2px solid #a67c52;
+  border-radius: 12px;
+  font-weight: bold;
+  box-shadow: 0 4px 0 #a67c52, 0 6px 8px rgba(0,0,0,0.15);
+  padding: 8px 16px;
+  font-size: 16px;
+  align-self: flex-start;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+}
+
+.cuphead-add-btn:hover:not(:disabled) {
+  background: #ffeba0;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #a67c52, 0 8px 16px rgba(0,0,0,0.15);
+}
+
+.cuphead-add-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #a67c52;
+}
+
+.cuphead-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 茶杯头风格：无结果提示 */
+.cuphead-no-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 120px;
+}
+
+.cuphead-no-result-icon {
+  font-size: 32px;
+  color: #a67c52;
+}
+
+.cuphead-no-result-text {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 18px;
+  color: #7c4a1e;
+}
+
+/* 茶杯头风格弹窗 */
+:deep(.cuphead-dialog) {
+  background: transparent !important;
+  border-radius: 24px;
+  box-shadow: none !important;
+  overflow: visible;
+}
+
+:deep(.cuphead-dialog .el-dialog__header) {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+:deep(.cuphead-dialog .el-dialog__body) {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+:deep(.cuphead-dialog .el-dialog) {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 重要：修复对话框背景透明问题 */
+:deep(.add-friend-dialog-center .el-overlay-dialog) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:deep(.add-friend-dialog-center .el-dialog) {
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 弹窗内容区域 - 保持阴影与边框 */
+.cuphead-header-bar {
+  background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%);
+  border: 2px solid #a67c52;
+  border-bottom-width: 0;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.cuphead-dialog-content {
+  background: #f5e1a4;
+  border: 2px solid #a67c52;
+  border-top-width: 0;
+  border-radius: 0 0 24px 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* 修改弹窗遮罩样式 */
+:deep(.el-overlay) {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(3px);
+}
+</style>
+
+<!-- 全局样式覆盖 - 确保所有 .cuphead-dialog 样式都被覆盖 -->
+<style>
+.cuphead-dialog .el-dialog,
+.cuphead-dialog.el-dialog {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 auto !important; /* 水平居中 */
+  border: none !important;
+  box-shadow: none !important;
+  position: absolute !important;
+  top: 50% !important; /* 垂直居中 */
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+.cuphead-dialog .el-dialog__header,
+.cuphead-dialog .el-dialog__body {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 关键修复：修正弹窗容器的定位问题，保证弹窗在视口中央 */
+.el-overlay-dialog {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 修正遮罩层属性，确保覆盖整个视口 */
+.el-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(3px) !important;
 }
 </style>
 
