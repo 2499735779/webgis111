@@ -20,6 +20,8 @@ const lng = ref('');
 const lat = ref('');
 const locating = ref(false);
 const errorMsg = ref('');
+const locationSuccess = ref(false); // 定位成功状态
+const checks = ref('');  // 当前选择图层
 let olmap = null;
 
 let userPositionOverlay = null; // 实时位置覆盖物
@@ -235,16 +237,20 @@ onBeforeUnmount(() => {
 const getCurrentLocation = () => {
   locating.value = true;
   errorMsg.value = '';
+  locationSuccess.value = false;
+  
   if (!navigator.geolocation) {
     errorMsg.value = '当前浏览器不支持地理位置获取';
     locating.value = false;
     return;
   }
+  
   navigator.geolocation.getCurrentPosition(
     async pos => {
       lng.value = pos.coords.longitude;
       lat.value = pos.coords.latitude;
       locating.value = false;
+      
       if (olmap) {
         const proj = olmap.getView().getProjection();
         const coord = proj.getCode() === 'EPSG:3857'
@@ -253,6 +259,7 @@ const getCurrentLocation = () => {
         olmap.getView().setCenter(coord);
         olmap.getView().setZoom(17);
       }
+      
       // 定位后自动上传坐标
       if (lng.value && lat.value) {
         await axios.post('/api/user-location', {
@@ -261,8 +268,16 @@ const getCurrentLocation = () => {
           lng: Number(lng.value),
           lat: Number(lat.value)
         });
-        errorMsg.value = '上传成功';
-        setTimeout(() => { errorMsg.value = ''; }, 1500);
+        
+        // 显示成功反馈
+        locationSuccess.value = true;
+        errorMsg.value = '定位成功';
+        
+        // 3秒后隐藏成功状态
+        setTimeout(() => { 
+          locationSuccess.value = false;
+          errorMsg.value = '';
+        }, 3000);
       }
     },
     err => {
@@ -520,6 +535,56 @@ const searchNearby = async () => {
   }
 };
 
+// 解决 transformGCJ02ToWGS84 未定义的问题
+// 添加坐标转换函数
+function transformGCJ02ToWGS84(lng, lat) {
+  // 检查是否在中国境外
+  function outOfChina(lng, lat) {
+    return (lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271);
+  }
+  
+  if (outOfChina(lng, lat)) {
+    return { lng, lat };
+  }
+  
+  let dlat = transformLatitude(lng - 105.0, lat - 35.0);
+  let dlng = transformLongitude(lng - 105.0, lat - 35.0);
+  
+  const radlat = lat / 180.0 * Math.PI;
+  let magic = Math.sin(radlat);
+  magic = 1 - 0.00669342162296594323 * magic * magic;
+  
+  const sqrtmagic = Math.sqrt(magic);
+  dlat = (dlat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic * sqrtmagic) * Math.PI);
+  dlng = (dlng * 180.0) / (6378245.0 / sqrtmagic * Math.cos(radlat) * Math.PI);
+  
+  const mglat = lat + dlat;
+  const mglng = lng + dlng;
+  
+  return {
+    lng: lng * 2 - mglng,
+    lat: lat * 2 - mglat
+  };
+}
+
+// 辅助函数：经度偏移计算
+function transformLongitude(x, y) {
+  let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+  ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+  return ret;
+}
+
+// 辅助函数：纬度偏移计算
+function transformLatitude(x, y) {
+  let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+  ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320.0 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+  return ret;
+}
+
 onMounted(() => {
   console.log('组件挂载，开始初始化地图...');
 
@@ -694,44 +759,81 @@ onMounted(() => {
       }
     }, 500);
   });
+
+  // 监听地图点击事件，进行坐标转换
+  if (window.map) {
+    window.map.on('click', function(evt) {
+      // 如果测距模式激活，不执行默认点击行为
+      if (window.__drawdistance_disable_userinfo__) {
+        console.log('[Map.vue] 测距模式激活，跳过默认点击处理');
+        return;
+      }
+      
+      // 获取点击位置的坐标
+      const coordinate = evt.coordinate;
+      // 将坐标转换为经纬度，使用导入的 toLonLat 函数
+      const lonlat = toLonLat(coordinate, window.map.getView().getProjection());
+      
+      // 根据当前选择的地图类型，对坐标进行转换
+      if (checks && checks.value === 'gaode') {
+        // 高德地图点击位置需要转换为天地图坐标系
+        const corrected = transformGCJ02ToWGS84(lonlat[0], lonlat[1]);
+        // 转回Mercator投影坐标，使用导入的 fromLonLat 函数
+        const correctedCoord = fromLonLat([corrected.lng, corrected.lat], window.map.getView().getProjection());
+        // 存储修正后的坐标
+        window.correctedCoordinate = correctedCoord;
+      } 
+      else {
+        // 天地图等其他地图不需要转换
+        window.correctedCoordinate = coordinate;
+      }
+    });
+  }
 });
 </script>
 
 <template>
   <div style="width:100%;height:100%;position:relative;">
     <div id="mapDom" class="map"></div>
-    <!-- 右侧定位按钮（已融合上传功能） -->
+    <!-- 替换原有定位按钮为新设计的风格按钮 -->
     <div class="usermap-btns">
       <div class="locate-btn-wrapper" title="定位到当前坐标并上传">
-        <svg
-          class="locate-svg-btn"
+        <div 
+          class="location-button-container" 
           @click="!locating && getCurrentLocation()"
-          :style="{ pointerEvents: locating ? 'none' : 'auto', opacity: locating ? 0.5 : 1 }"
-          width="56"
-          height="56"
-          viewBox="0 0 4855.79 4855.79"
-          style="cursor:pointer;"
-          xmlns="http://www.w3.org/2000/svg"
+          :class="{ 'success-state': locationSuccess }"
         >
-          <g>
-            <circle class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-miterlimit:22.9256;fill:none;" cx="2427.9" cy="2427.89" r="1495.78"/>
-            <path class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-miterlimit:22.9256;fill:none;" d="M3092.69 2427.89c0,-367.15 -297.64,-664.79 -664.79,-664.79 -367.15,0 -664.79,297.64 -664.79,664.79 0,367.15 297.64,664.79 664.79,664.79 367.15,0 664.79,-297.64 664.79,-664.79z"/>
-            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="2427.9" y1="3923.66" x2="2427.9" y2="4546.91"/>
-            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="2427.9" y1="308.88" x2="2427.9" y2="932.11"/>
-            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="932.12" y1="2427.89" x2="308.88" y2="2427.89"/>
-            <line class="fil0" style="stroke:#4D4D4D;stroke-width:617.74;stroke-linecap:round;stroke-miterlimit:22.9256;fill:none;" x1="4546.91" y1="2427.89" x2="3923.67" y2="2427.89"/>
-            <circle class="fil0" style="stroke:#0573E1;stroke-width:617.74;stroke-miterlimit:22.9256;fill:none;" cx="2427.9" cy="2427.89" r="664.79"/>
-          </g>
-        </svg>
+          <img 
+            src="/location-button.svg" 
+            class="location-button-img" 
+            :style="{ opacity: locating ? 0.6 : 1 }"
+            alt="定位按钮"
+          />
+          <!-- 添加加载指示器 -->
+          <div class="location-loading-indicator" v-if="locating">
+            <div class="spinner"></div>
+          </div>
+          <!-- 添加成功指示器 -->
+          <div class="location-success-indicator" v-if="locationSuccess">
+            <div class="success-icon">✓</div>
+          </div>
+          <!-- 添加悬停提示 -->
+          <div class="location-tooltip">点击定位</div>
+        </div>
       </div>
-      <!-- 删除上传按钮，只保留定位按钮 -->
     </div>
+    
     <!-- 底部搜索搭子按钮和提示信息 -->
     <div class="search-nearby-bar">
       <div class="search-error-msg-bar">
         <span v-if="errorMsg" class="error-msg search-error-msg">{{ errorMsg }}</span>
       </div>
-      <el-button type="primary" size="large" @click="searchNearby">搜索附近游戏搭子</el-button>
+      <el-button 
+        type="primary" 
+        size="large" 
+        @click="searchNearby" 
+        class="search-nearby-btn cuphead-game-btn-2d"
+      >搜索附近游戏搭子</el-button>
     </div>
     <!-- 用户信息弹窗 - 修改为茶杯头风格 -->
     <el-dialog
@@ -817,10 +919,11 @@ onMounted(() => {
   overflow: visible !important;
 }
 
+/* 重新设计的定位按钮样式 */
 .usermap-btns {
   position: fixed;
   right: 40px;
-  top: calc(50% + 200px); /* 向下移动100像素 */
+  top: calc(50% + 200px);
   z-index: 10010;
   pointer-events: none;
   display: flex;
@@ -828,95 +931,142 @@ onMounted(() => {
   align-items: flex-end;
   gap: 0;
   transform: translateY(-50%);
-  background: transparent !important; /* 保证背景透明 */
+  background: transparent !important;
 }
-.publicmap-placeholder {
-  /* 用于占位，与publicmap控件高度一致 */
-  width: 310px;
-  height: 140px;
-  margin-bottom: 20px; /* 定位控件与publicmap控件间距20px */
-  pointer-events: none;
-}
+
 .locate-btn-wrapper {
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 10px;
-  background: transparent !important; /* 保证背景透明 */
-}
-.locate-svg-btn {
-  pointer-events: auto;
   background: transparent !important;
-  border: none;
-  padding: 0;
-  display: block;
-  transition: box-shadow 0.2s;
-  /* box-shadow: 0 2px 8px rgba(0,0,0,0.10); */ /* 注释掉外部边框阴影 */
-  border-radius: 50%;
+  position: relative;
 }
-.locate-btn-wrapper:hover .locate-svg-btn {
-  /* box-shadow: 0 4px 16px rgba(64,158,255,0.18); */ /* 注释掉悬停时的阴影 */
-  background: #f0f7ff;
-}
-.upload-btn {
-  height: 44px;
-  border-radius: 22px;
-  background: linear-gradient(90deg,#67c23a,#409eff);
-  color: #fff;
-  border: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  font-size: 18px;
-  padding: 0 28px;
+
+.location-button-container {
+  width: 64px;
+  height: 64px;
+  position: relative;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.2s;
+  transition: transform 0.3s;
 }
-.upload-btn:disabled {
-  background: #e0e0e0;
-  color: #aaa;
-  cursor: not-allowed;
+
+.location-button-container:hover {
+  transform: scale(1.08) translateY(-3px);
 }
-.icon {
-  font-size: 22px;
+
+.location-button-container:active {
+  transform: scale(0.95);
 }
-/* 只保留底部提示样式，去除原来左侧的 error-msg 定位 */
-.error-msg {
-  color: #f56c6c;
-  background: #fff;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 15px;
-  z-index: 20;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  pointer-events: auto;
-  margin: 0 auto;
-  position: static;
-  display: inline-block;
-  vertical-align: middle;
-}
-.search-error-msg {
-  margin-bottom: 0;
-}
-html, body, #app {
+
+.location-button-img {
   width: 100%;
   height: 100%;
-  margin: 0;
-  padding: 0;
+  filter: drop-shadow(0 4px 8px rgba(166, 124, 82, 0.3));
+  transition: filter 0.3s;
 }
-.user-marker {
+
+/* 成功状态样式 */
+.location-button-container.success-state .location-button-img {
+  filter: drop-shadow(0 0 12px rgba(103, 194, 58, 0.8));
+}
+
+.location-success-indicator {
   position: absolute;
-  transform: translate(-50%, -50%);
-  z-index: 99999 !important; /* 提高层级，防止被地图瓦片遮挡 */
-  pointer-events: auto;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 251, 230, 0.7);
+  border-radius: 50%;
 }
+
+.success-icon {
+  width: 32px;
+  height: 32px;
+  background: #67c23a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: bold;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: bounce 0.5s ease;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+/* 悬停提示样式 */
+.location-tooltip {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  background: #fffbe6;
+  color: #7c4a1e;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
+  border: 2px solid #a67c52;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transition: transform 0.2s, opacity 0.2s;
+  pointer-events: none;
+  z-index: 10011;
+}
+
+.location-button-container:hover .location-tooltip {
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+}
+
+/* 加载状态指示器 */
+.location-loading-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 251, 230, 0.7);
+  border-radius: 50%;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #a67c52;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .search-nearby-bar {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 18px;
+  bottom: 30px; /* 增加底部间距 */
   z-index: 30010;
   display: flex;
   flex-direction: column;
@@ -1046,26 +1196,6 @@ html, body, #app {
   /* 移除阴影 */
   box-shadow: none;
   font-family: 'JiangxiZhuokai', cursive, sans-serif;
-}
-
-/* 确保弹窗背景符合茶杯头主题风格 */
-.el-dialog__wrapper.user-info-cuphead-bg {
-  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%);
-  border-radius: 60px;
-  min-width: 340px;
-  min-height: 420px;
-  max-width: 520px;
-  max-height: 640px;
-  aspect-ratio: 1/1.2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow:
-    0 12px 48px rgba(80,60,30,0.18),
-    0 0 0 18px #c7a16b inset,
-    0 0 0 4px #7c4a1e;
-  position: relative;
-  overflow: hidden;
 }
 
 /* 调整头像发光效果，使其更协调 */
@@ -1205,4 +1335,105 @@ html, body, #app {
   border: none !important;
   font-weight: bold !important;
 }
+
+/* 茶杯头风格的2D手绘搜索按钮 */
+.search-nearby-btn.cuphead-game-btn-2d {
+  background: #fff6d0 !important;
+  color: #7c4a1e !important;
+  border: 3px solid #7c4a1e !important;
+  border-radius: 18px !important;
+  font-weight: bold !important;
+  box-shadow: 
+    0 4px 0 #7c4a1e,
+    0 6px 8px rgba(0,0,0,0.15);
+  padding: 12px 32px !important;
+  margin: 12px 0;
+  font-size: 20px !important;
+  position: relative;
+  transform: translateY(-2px);
+  transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
+  text-shadow: 1px 1px 0 #fffbe6;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+  overflow: visible;
+}
+
+.search-nearby-btn.cuphead-game-btn-2d::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: -6px;
+  bottom: -6px;
+  background: transparent;
+  border: 2px dashed rgba(166, 124, 82, 0.4);
+  border-radius: 22px;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.search-nearby-btn.cuphead-game-btn-2d:hover {
+  background: #ffeba0 !important;
+  color: #7c4a1e !important;
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 0 #7c4a1e,
+    0 4px 6px rgba(0,0,0,0.1);
+}
+
+.search-nearby-btn.cuphead-game-btn-2d:hover::before {
+  opacity: 1;
+}
+
+.search-nearby-btn.cuphead-game-btn-2d:active {
+  transform: translateY(2px);
+  box-shadow: 
+    0 0px 0 #7c4a1e,
+    0 2px 4px rgba(0,0,0,0.08);
+}
+
+.error-msg.search-error-msg {
+  background: #fff6d0;
+  color: #7c4a1e;
+  border: 2px solid #a67c52;
+  border-radius: 12px;
+  padding: 8px 24px;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(166, 124, 82, 0.15);
+}
+
+/* 删除按钮样式 */
+.delete-btn-overlay {
+  background: transparent;
+  border: none;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 测距模式下强制十字光标 */
+.measure-active,
+.measure-active * {
+  cursor: crosshair !important;
+}
+
+body.measure-mode .ol-viewport,
+body.measure-mode .ol-viewport * {
+  cursor: crosshair !important;
+}
+
+/* 确保测距相关元素在测距模式下可见 */
+body.measure-mode .drawdistance-cursor-tip,
+body.measure-mode .distance-label,
+body.measure-mode .delete-btn-overlay {
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 999999 !important;
+  pointer-events: auto !important;
+}
 </style>
+ 

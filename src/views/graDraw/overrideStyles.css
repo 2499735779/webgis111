@@ -1,0 +1,81 @@
+/* 测距删除按钮样式覆盖 */
+.delete-btn-overlay {
+  background: transparent !important;
+  border: none !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.cuphead-delete-btn {
+  background: #fffbe6 !important;
+  border: 2px solid #a67c52 !important;
+  border-radius: 50% !important;
+  width: 40px !important;
+  height: 40px !important;
+  cursor: pointer !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  outline: none !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.cuphead-delete-btn:hover {
+  background: #ffeba0 !important;
+  box-shadow: 0 6px 16px rgba(166, 124, 82, 0.4) !important;
+  transform: translateY(-2px) scale(1.05) !important;
+}
+
+.cuphead-delete-btn:active {
+  transform: translateY(1px) scale(0.95) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+  background: #f5e1a4 !important;
+}
+
+/* 测距结果标签样式覆盖 */
+.distance-label {
+  background: linear-gradient(90deg, #f5e1a4 0%, #ffe066 100%) !important;
+  color: #7c4a1e !important;
+  padding: 8px 12px !important;
+  border-radius: 12px !important;
+  font-size: 16px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;
+  white-space: nowrap !important;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+  border: 2px solid #a67c52 !important;
+  font-weight: bold !important;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7) !important;
+  padding: 6px 16px !important;
+  min-width: 120px !important;
+  text-align: center !important;
+  transform-origin: center center !important;
+}
+
+/* 鼠标提示样式覆盖 */
+.drawdistance-cursor-tip {
+  position: fixed !important;
+  pointer-events: none !important;
+  left: 0 !important;
+  top: 0 !important;
+  background: linear-gradient(90deg, #f5e1a4 0%, #ffe066 100%) !important;
+  color: #7c4a1e !important;
+  padding: 8px 16px !important;
+  border-radius: 12px !important;
+  font-size: 16px !important;
+  z-index: 99999 !important;
+  white-space: nowrap !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;
+  transform: none !important;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+  border: 2px solid #a67c52 !important;
+  font-weight: bold !important;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7) !important;
+}

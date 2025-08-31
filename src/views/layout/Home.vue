@@ -5,14 +5,29 @@ import Map from '../Map.vue';
 import PublicMap from '../dataService/PublicMap.vue';
 import FriendMenu from './friendmenu.vue';
 import MessageDialog from './MessageDialog.vue';
-/*import Drawdistance from '../graDraw/Drawdistance.vue';*/
 import Drawdistance from '../graDraw/Drawdistance.vue';
+import MapControl from './MapControl.vue'; // 引入新的地图控制组件
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { useRoute } from 'vue-router';
 import { useSocket } from '@/utils/usesocket'; // 新增
 import { ElMessage } from 'element-plus'
 import { allGames, getGameNameById, gameCategories, gameNameToId } from '../userinformation/games.js'
+import mitt from 'mitt'; // 引入 mitt 用于创建事件总线
+
+// 创建地图控制事件总线
+const mapControlEmitter = mitt();
+window.__mapControlEmitter__ = mapControlEmitter;
+
+// 控件显示状态
+const controlsVisible = ref(false);
+
+// 监听控件显示状态变化
+mapControlEmitter.on('setControlsVisible', (visible) => {
+  controlsVisible.value = visible;
+  // 通知 MapControl 组件状态已更改
+  mapControlEmitter.emit('controlsVisibleChanged', visible);
+});
 
 // 全局事件总线用于跨组件通信
 const globalDialogVisible = ref(false);
@@ -267,7 +282,7 @@ const isRejected = computed(() =>
 const isLoginPage = computed(() => route.name === 'UserLogin');
 // 修改这里，注册页也隐藏右下角控件
 const isRegisterPage = computed(() => route.name === 'UserRegister');
-const hideSwitchPanel = computed(() => isLoginPage.value || isRegisterPage.value || showUserInfo.value || globalDialogVisible.value);
+const hideSwitchPanel = computed(() => isLoginPage.value || isRegisterPage.value || showUserInfo.value || globalDialogVisible.value || !controlsVisible.value);
 
 // 打开好友列表方法，兼容PC和移动端
 const showFriendList = () => {
@@ -319,6 +334,8 @@ onMounted(async () => {
       friendMenuRef.value._setupFriendListEventSocket = true;
     }
   });
+  // 默认隐藏控件
+  controlsVisible.value = false;
 });
 
 // 头像加载失败回调，防止未定义警告
@@ -420,6 +437,17 @@ function removeTag(id) {
   if (idx !== -1) {
     gameTagSelect.value.splice(idx, 1)
   }
+}
+
+// 修改：监听drawActive状态变化，保证测距功能优先级
+if (window.__distanceEmitter__) {
+  window.__distanceEmitter__.on('distanceControlSwitch', (active) => {
+    if (active) {
+      // 测距工具激活时，确保控件可见
+      controlsVisible.value = true;
+      mapControlEmitter.emit('controlsVisibleChanged', true);
+    }
+  });
 }
 </script>
 
@@ -641,15 +669,22 @@ function removeTag(id) {
           <router-view />
         </main>
         <PublicMap />
-        <!-- 只在地图初始化后再挂载测距控件 -->
+        <!-- 保留Drawdistance组件但移除display:none样式 -->
         <Drawdistance v-if="mapReady" @mounted="() => console.log('[Home.vue] Drawdistance mounted')" />
       </div>
     </div>
-    <!-- 右下角控件组合：仅在非登录页且未显示任何弹窗时可见 -->
+    <!-- 添加地图控制组件 -->
+    <MapControl />
+    <!-- 右下角控件组合：增加控件可见性控制 -->
     <div
       class="switch-bottom-panel"
       v-if="!hideSwitchPanel"
-      :style="{ pointerEvents: !hideSwitchPanel ? 'auto' : 'none' }"
+      :style="{ 
+        pointerEvents: !hideSwitchPanel ? 'auto' : 'none',
+        opacity: controlsVisible ? 1 : 0,
+        transform: controlsVisible ? 'translateY(0)' : 'translateY(20px)',
+        transition: 'opacity 0.3s, transform 0.3s'
+      }"
     >
       <Switch />
     </div>
@@ -810,7 +845,7 @@ function removeTag(id) {
   overflow: hidden;
 }
 
-/* 让弹窗本体和内容区都透明，背景由外层渲染 */
+/* 让弹窗本体和内容区都透明，背景由外部渲染 */
 .el-dialog__wrapper.user-info-cuphead-bg .el-dialog,
 .el-dialog__wrapper.user-info-cuphead-bg .el-dialog__header,
 .el-dialog__wrapper.user-info-cuphead-bg .el-dialog__body {
@@ -1189,5 +1224,14 @@ function removeTag(id) {
     0 4px 0 #a12312,
     0 6px 8px rgba(0,0,0,0.15),
     0 0 0 2px rgba(161, 35, 18, 0.3);
+}
+
+/* 确保测距相关元素在测距模式下可见 */
+body.measure-active .drawdistance-cursor-tip,
+body.measure-active .distance-label,
+body.measure-active .delete-btn-overlay {
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 999999 !important;
 }
 </style>

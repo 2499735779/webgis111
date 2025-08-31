@@ -27,4 +27,7 @@ app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
+// 引入全局样式覆盖文件
+import './views/graDraw/overrideStyles.css'
+
 app.mount('#app')

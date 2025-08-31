@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+    <title><%= htmlWebpackPlugin.options.title %></title>
+    <!-- 添加测距全局样式 -->
+    <link rel="stylesheet" href="/distance-styles.css">
+    <!-- 添加字体预加载 -->
+    <link rel="preload" href="/fonts/jiangxi-zhoukai/jiangxizhuokai-Regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+      /* 全局字体声明，确保可以在任何地方使用 */
+      @font-face {
+        font-family: 'JiangxiZhuokai';
+        src: url('/fonts/jiangxi-zhoukai/jiangxizhuokai-Regular.woff2') format('woff2'),
+            url('/fonts/jiangxi-zhoukai/jiangxizhuokai-Regular.woff') format('woff');
+        font-display: swap;
+      }
+      
+      /* 确保删除按钮样式和测距结果字体样式一定会应用 */
+      .delete-btn-overlay {
+        z-index: 99999 !important;
+        pointer-events: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      
+      .distance-label {
+        font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
+        background: linear-gradient(90deg, #f5e1a4 0%, #ffe066 100%) !important;
+        color: #7c4a1e !important;
+        border: 2px solid #a67c52 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>
+      <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+    </noscript>
+    <div id="app"></div>
+    <!-- built files will be auto injected -->
+  </body>
+</html>
