@@ -1,15 +1,22 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import path from 'path'
 
 export default defineConfig({
   base: './',
   plugins: [ vue() ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': path.resolve(__dirname, './src')
     }
   },
+  build: {
+    outDir: 'dist',
+    // 确保处理 SVG 资源
+    assetsInlineLimit: 0, // 不内联任何资源
+  },
+  publicDir: 'public', // 确保正确指定公共资源目录
   server: {
     proxy: {
       '/local': {
