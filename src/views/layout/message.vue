@@ -59,6 +59,9 @@ const sendMessage = async () => {
   inputMsg.value = ''
   // 这里调用 fetchMessages 以防万一，通常服务器推送会自动刷新
   await fetchMessages(selectedFriend.value)
+  
+  // 重置信纸高度
+  paperLines.value = 3;
 }
 
 // 获取未读消息数
@@ -141,12 +144,97 @@ const selectFriend = async (f) => {
   console.debug('[DEBUG] selectFriend:', selectedFriend.value)
   await fetchMessages(selectedFriend.value)
 }
+
+// 添加行高追踪和下划线管理
+const lineHeight = 24; // 文本输入的行高
+const paperLines = ref(3); // 默认显示的行数
+const paperBackground = ref(null); // 引用信纸背景元素
+
+// 新增：最大显示行数限制，超过后显示滚动条
+const maxDisplayLines = 8;
+
+// 监听输入内容变化，动态调整行数和下划线
+const updatePaperLines = () => {
+  nextTick(() => {
+    if (!paperBackground.value) return;
+    
+    // 计算当前文本需要的行数(至少1行)
+    const text = inputMsg.value;
+    const lines = text.split('\n').length;
+    const textWidth = paperBackground.value.clientWidth - 40; // 减去左右内边距
+    let totalLines = 0;
+    
+    // 计算每行文本是否需要换行
+    text.split('\n').forEach(line => {
+      // 创建临时span计算宽度
+      const tempSpan = document.createElement('span');
+      tempSpan.style.font = '16px "JiangxiZhuokai", cursive, sans-serif';
+      tempSpan.style.position = 'absolute';
+      tempSpan.style.visibility = 'hidden';
+      tempSpan.style.whiteSpace = 'nowrap';
+      tempSpan.textContent = line || 'A'; // 空行也算1行
+      document.body.appendChild(tempSpan);
+      
+      // 计算需要的行数
+      const lineWidth = tempSpan.offsetWidth;
+      const lineCount = Math.max(1, Math.ceil(lineWidth / textWidth));
+      totalLines += lineCount;
+      
+      // 移除临时元素
+      document.body.removeChild(tempSpan);
+    });
+    
+    // 确保至少有3行，但不超过最大行数限制
+    paperLines.value = Math.min(Math.max(3, totalLines + 1), maxDisplayLines); // +1为光标所在行
+  });
+};
+
+// 监听输入内容变化
+watch(() => inputMsg.value, updatePaperLines);
+
+// 在组件挂载后初始化
+onMounted(() => {
+  // ...existing code...
+  nextTick(updatePaperLines);
+});
+
+// 处理回车键（shift+回车添加新行，直接回车发送消息）
+const handleKeyDown = (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+};
+
+// 添加信纸焦点状态
+const paperFocused = ref(false);
+
+// 处理信纸获得焦点和失去焦点事件
+const handlePaperFocus = () => {
+  paperFocused.value = true;
+};
+
+const handlePaperBlur = () => {
+  paperFocused.value = false;
+};
+
+// 聊天面板首次显示时自动聚焦到文本输入框
+watch(() => selectedFriend.value, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      const textarea = document.querySelector('.paper-textarea');
+      if (textarea) {
+        textarea.focus();
+      }
+    });
+  }
+});
 </script>
 
 <template>
-  <div class="msg-root">
+  <div class="msg-root cuphead-theme">
     <div class="msg-friend-list">
-      <div class="msg-friend-title">好友</div>
+      <div class="msg-friend-title">好友列表</div>
       <div
         v-for="f in friends"
         :key="typeof f === 'string' ? f : f.username"
@@ -159,118 +247,421 @@ const selectFriend = async (f) => {
         </span>
       </div>
     </div>
+    
     <div class="msg-chat-panel" v-if="selectedFriend">
       <div class="msg-chat-title">
         <span>与 {{ selectedFriend }} 的聊天</span>
       </div>
-      <div class="msg-chat-list" ref="chatListRef">
+      
+      <div class="msg-chat-list cuphead-chat-list" ref="chatListRef">
         <div
           v-for="msg in messages"
           :key="msg._id"
-          :class="['msg-item', { self: msg.from === user.username }]"
+          :class="['cuphead-msg-item', { self: msg.from === user.username }]"
         >
-          <span class="msg-user">{{ msg.from }}</span>
-          <span class="msg-content" v-if="msg.type !== 'friend-request'">{{ msg.content }}</span>
-          <template v-else>
-            <span class="msg-content">[好友请求] {{ msg.from }} 请求加你为好友</span>
-            <el-button size="small" type="success" @click="handleRequest(msg, true)">同意</el-button>
-            <el-button size="small" type="danger" @click="handleRequest(msg, false)">拒绝</el-button>
-          </template>
+          <div class="msg-bubble-container">
+            <div class="msg-user">{{ msg.from }}</div>
+            <div class="msg-bubble" v-if="msg.type !== 'friend-request'">
+              {{ msg.content }}
+            </div>
+            <div class="msg-bubble friend-request" v-else>
+              <div>[好友请求] {{ msg.from }} 请求加你为好友</div>
+              <div class="request-buttons">
+                <button class="cuphead-btn accept" @click="handleRequest(msg, true)">同意</button>
+                <button class="cuphead-btn reject" @click="handleRequest(msg, false)">拒绝</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="msg-chat-input">
-        <el-input
-          v-model="inputMsg"
-          placeholder="输入消息，回车发送"
-          @keyup.enter="sendMessage"
-        />
-        <el-button type="primary" @click="sendMessage">发送</el-button>
+      
+      <div class="cuphead-chat-input">
+        <div class="paper-container">
+          <div class="paper-background" ref="paperBackground" :class="{ 'paper-focused': paperFocused }">
+            <div 
+              class="paper-lines"
+              :style="{ height: `${paperLines * lineHeight}px` }"
+            >
+              <div 
+                v-for="i in paperLines" 
+                :key="i" 
+                class="paper-line"
+                :style="{ top: `${i * lineHeight - 4}px` }"
+              ></div>
+            </div>
+            
+            <!-- 修改：添加容器控制滚动 -->
+            <div class="paper-textarea-container">
+              <textarea
+                v-model="inputMsg"
+                class="paper-textarea"
+                :style="{ 
+                  height: `${paperLines * lineHeight}px`, 
+                  maxHeight: `${maxDisplayLines * lineHeight}px` 
+                }"
+                placeholder="在信纸上写下你的消息..."
+                @keydown="handleKeyDown"
+                @input="updatePaperLines"
+                @focus="handlePaperFocus"
+                @blur="handlePaperBlur"
+                autocomplete="off"
+                spellcheck="false"
+              ></textarea>
+              
+              <!-- 添加光标元素 -->
+              <div class="paper-cursor" v-if="paperFocused"></div>
+            </div>
+          </div>
+        </div>
+        
+        <button 
+          class="cuphead-send-btn" 
+          @click="sendMessage" 
+          :disabled="!inputMsg.trim()"
+        >
+          发送
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* 整体风格覆盖 */
+.cuphead-theme {
+  --cuphead-primary: #7c4a1e;
+  --cuphead-accent: #a67c52;
+  --cuphead-bg: #fffbe6;
+  --cuphead-bg-light: #f5e1a4;
+  --cuphead-shadow: rgba(166, 124, 82, 0.2);
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+}
+
 .msg-root {
   display: flex;
   height: 100vh;
-  background: #f8f8f8;
+  background: var(--cuphead-bg);
 }
+
+/* 好友列表侧边栏 */
 .msg-friend-list {
-  width: 180px;
-  background: #fff;
-  border-right: 1px solid #eee;
+  width: 220px;
+  background: linear-gradient(180deg, #fffbe6 0%, #f5e1a4 100%);
+  border-right: 3px solid var(--cuphead-accent);
   padding: 0;
   display: flex;
   flex-direction: column;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
 }
+
 .msg-friend-title {
   font-weight: bold;
-  padding: 16px 0 8px 18px;
-  border-bottom: 1px solid #eee;
+  padding: 20px 0 16px 24px;
+  border-bottom: 2px dashed rgba(166, 124, 82, 0.4);
+  font-size: 22px;
+  color: var(--cuphead-primary);
+  text-shadow: 1px 1px 0 #f5e1a4;
 }
+
 .msg-friend-item {
-  padding: 12px 18px;
+  padding: 14px 24px;
   cursor: pointer;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid rgba(166, 124, 82, 0.2);
   display: flex;
   justify-content: space-between;
   align-items: center;
   transition: background 0.2s;
+  color: var(--cuphead-primary);
+  font-size: 16px;
 }
+
+.msg-friend-item:hover {
+  background: rgba(166, 124, 82, 0.1);
+}
+
 .msg-friend-item.active {
-  background: #e6f7ff;
+  background: rgba(166, 124, 82, 0.2);
+  border-left: 4px solid var(--cuphead-accent);
+  font-weight: bold;
 }
+
 .msg-unread {
   background: #f56c6c;
   color: #fff;
-  border-radius: 10px;
-  padding: 2px 8px;
+  border-radius: 12px;
+  padding: 2px 10px;
   font-size: 12px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
+
+/* 聊天主面板 */
 .msg-chat-panel {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   height: 100vh;
+  min-height: 540px; /* 原来未限制，放大为540px */
+  background: var(--cuphead-bg);
 }
+
 .msg-chat-title {
-  padding: 16px 0 8px 18px;
-  border-bottom: 1px solid #eee;
+  padding: 20px 0 16px 24px;
+  border-bottom: 2px dashed rgba(166, 124, 82, 0.4);
   font-weight: bold;
+  font-size: 22px;
+  color: var(--cuphead-primary);
+  text-shadow: 1px 1px 0 #f5e1a4;
 }
-.msg-chat-list {
-  flex: 1;
+
+/* 聊天消息列表 */
+/* 原来 .cuphead-chat-list 高度由父容器控制，现在直接设置更大高度 */
+.cuphead-chat-list {
+  flex: 1 1 auto;
+  min-height: 340px; /* 原来高度较小，放大为340px */
+  max-height: 420px; /* 增加最大高度，防止撑破弹窗 */
   overflow-y: auto;
-  padding: 18px;
-  background: #f8f8f8;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.6);
+  margin: 16px;
+  border-radius: 16px;
+  border: 2px solid #a67c52;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
 }
-.msg-item {
-  margin-bottom: 12px;
+
+/* 聊天消息气泡样式 */
+.cuphead-msg-item {
+  margin-bottom: 20px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
-.msg-item.self {
+
+.cuphead-msg-item.self {
   justify-content: flex-end;
 }
-.msg-user {
-  font-weight: bold;
-  margin-right: 8px;
-  color: #409eff;
-}
-.msg-content {
-  background: #fff;
-  padding: 6px 12px;
-  border-radius: 6px;
-  margin-right: 8px;
-  max-width: 320px;
-  word-break: break-all;
-}
-.msg-chat-input {
+
+.msg-bubble-container {
+  max-width: 75%;
   display: flex;
-  gap: 8px;
-  padding: 12px 18px;
-  border-top: 1px solid #eee;
+  flex-direction: column;
+}
+
+.msg-user {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: var(--cuphead-primary);
+}
+
+.cuphead-msg-item.self .msg-user {
+  text-align: right;
+  color: #67c23a;
+}
+
+.msg-bubble {
   background: #fff;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 2px solid var(--cuphead-accent);
+  box-shadow: 0 2px 8px var(--cuphead-shadow);
+  color: var(--cuphead-primary);
+  font-size: 16px;
+  word-break: break-word;
+  line-height: 1.5;
+  position: relative;
+}
+
+.cuphead-msg-item.self .msg-bubble {
+  background: var(--cuphead-bg);
+}
+
+.msg-bubble.friend-request {
+  background: var(--cuphead-bg-light);
+  border-color: var(--cuphead-accent);
+  padding-bottom: 16px;
+}
+
+/* 好友请求按钮 */
+.request-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.cuphead-btn {
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-weight: bold;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  border: 2px solid;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.cuphead-btn.accept {
+  background: #67c23a;
+  color: white;
+  border-color: #529b2e;
+}
+
+.cuphead-btn.accept:hover {
+  background: #529b2e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cuphead-btn.reject {
+  background: #f56c6c;
+  color: white;
+  border-color: #e64242;
+}
+
+.cuphead-btn.reject:hover {
+  background: #e64242;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 消息气泡小三角 */
+.msg-bubble::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: -10px;
+  border: 8px solid transparent;
+  border-right-color: var(--cuphead-accent);
+}
+
+.msg-bubble::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: -7px;
+  border: 8px solid transparent;
+  border-right-color: #fff;
+}
+
+.cuphead-msg-item.self .msg-bubble::before {
+  left: auto;
+  right: -10px;
+  border-right-color: transparent;
+  border-left-color: var(--cuphead-accent);
+}
+
+.cuphead-msg-item.self .msg-bubble::after {
+  left: auto;
+  right: -7px;
+  border-right-color: transparent;
+  border-left-color: var(--cuphead-bg);
+}
+
+/* 信纸风格输入框 */
+.cuphead-chat-input {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.paper-container {
+  width: 100%;
+  margin-bottom: 16px;
+  perspective: 1000px;
+}
+
+.paper-background {
+  width: 100%;
+  position: relative;
+  background: #fffef8;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  padding: 16px 20px;
+  border: 2px solid var(--cuphead-accent);
+  transform: rotate(-0.5deg);
+  transition: transform 0.2s;
+}
+
+.paper-background:hover {
+  transform: rotate(0.5deg);
+}
+
+.paper-lines {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 40px;
+  pointer-events: none; /* 确保下划线不会阻挡文本选择 */
+}
+
+.paper-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(166, 124, 82, 0.3);
+  pointer-events: none; /* 确保下划线不会阻挡文本选择 */
+}
+
+/* 新增：信纸边框焦点状态样式 */
+.paper-background.paper-focused {
+  box-shadow: 0 4px 16px rgba(166, 124, 82, 0.2);
+  border-color: #a67c52;
+  transform: rotate(0deg);
+}
+
+/* 修改：信纸容器和输入框样式 */
+.paper-textarea-container {
+  position: relative;
+  width: 100%;
+  overflow: auto; /* 启用滚动条 */
+  max-height: 192px; /* 最大8行 = 8 * 24px */
+  z-index: 1; /* 确保在下划线上方 */
+}
+
+.paper-textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--cuphead-primary);
+  padding: 0;
+  resize: none;
+  overflow: visible; /* 允许内容溢出，由容器控制滚动 */
+  z-index: 2; /* 确保在下划线上方 */
+  margin: 0; /* 移除默认margin */
+  -webkit-appearance: none; /* 移除iOS默认样式 */
+  pointer-events: auto; /* 确保可以选中和编辑文本 */
+  caret-color: var(--cuphead-accent); /* 原生光标颜色 */
+  position: relative; /* 确保相对定位 */
+}
+
+.paper-textarea::placeholder {
+  color: var(--cuphead-accent);
+  opacity: 0.5;
+}
+
+/* 新增：自定义闪烁光标 */
+.paper-cursor {
+  position: absolute;
+  top: 0;
+  height: 24px; /* 一行高度 */
+  width: 2px;
+  background-color: var(--cuphead-accent);
+  animation: cursor-blink 1s infinite;
+  left: 0; /* 初始位置 */
+  pointer-events: none; /* 不阻止输入框点击 */
+  z-index: 3;
+  /* 光标初始位置在首字符处 */
+  transform: translateX(calc(0ch + 0px)); /* 根据光标位置动态调整 */
+}
+
+/* 闪烁动画 */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 </style>
