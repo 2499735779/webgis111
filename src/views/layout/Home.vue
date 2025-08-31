@@ -450,6 +450,288 @@ if (window.__distanceEmitter__) {
     }
   });
 }
+
+// 页面边框特效控制 - 修改为默认启用且不可见控件
+const borderEffectEnabled = ref(true); // 默认启用
+
+// 页面加载完成后初始化Canvas粒子效果
+onMounted(() => {
+  // 粒子边框特效初始化
+  nextTick(() => {
+    initParticleBorder();
+  });
+});
+
+// 初始化粒子边框特效
+function initParticleBorder() {
+  // 创建Canvas元素
+  const canvas = document.createElement('canvas');
+  canvas.id = 'particleBorderCanvas';
+  canvas.className = 'particle-border-canvas';
+  document.body.appendChild(canvas);
+  
+  // 设置Canvas尺寸
+  const resizeCanvas = () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  };
+  
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  
+  // 获取Canvas上下文
+  const ctx = canvas.getContext('2d');
+  
+  // 粒子类 - 修改为从边缘向内部扩散
+  class Particle {
+    constructor() {
+      this.reset();
+      // 初始时让粒子处于随机生命周期，避免同时出现
+      this.life = Math.floor(Math.random() * this.maxLife * 0.8);
+      this.active = true; // 标记粒子是否活跃
+    }
+    
+    reset() {
+      // 减小边框范围：从原来的整个屏幕四周改为只在边框区域内活动
+      const borderWidth = 40; // 边框宽度
+      
+      // 随机决定粒子出现在哪条边
+      const edge = Math.floor(Math.random() * 4);
+      
+      switch(edge) {
+        case 0: // 上边
+          this.x = Math.random() * canvas.width;
+          this.y = Math.random() * borderWidth;
+          this.vx = (Math.random() - 0.5) * 0.5; // 水平随机，原来是0.8
+          this.vy = Math.random() * 0.4 + 0.2; // 向下移动(向内)，原来是0.6+0.4
+          break;
+        case 1: // 右边
+          this.x = canvas.width - Math.random() * borderWidth;
+          this.y = Math.random() * canvas.height;
+          this.vx = -Math.random() * 0.4 - 0.2; // 向左移动(向内)，原来是0.6+0.4
+          this.vy = (Math.random() - 0.5) * 0.5; // 垂直随机，原来是0.8
+          break;
+        case 2: // 下边
+          this.x = Math.random() * canvas.width;
+          this.y = canvas.height - Math.random() * borderWidth;
+          this.vx = (Math.random() - 0.5) * 0.5; // 水平随机，原来是0.8
+          this.vy = -Math.random() * 0.4 - 0.2; // 向上移动(向内)，原来是0.6+0.4
+          break;
+        case 3: // 左边
+          this.x = Math.random() * borderWidth;
+          this.y = Math.random() * canvas.height;
+          this.vx = Math.random() * 0.4 + 0.2; // 向右移动(向内)，原来是0.6+0.4
+          this.vy = (Math.random() - 0.5) * 0.5; // 垂直随机，原来是0.8
+          break;
+      }
+      
+      // 记录粒子起源边，用于判断是否向内扩散
+      this.originEdge = edge;
+      
+      // 设置速度上限，进一步降低最大速度
+      this.maxSpeed = 0.6;
+      
+      this.alpha = 0;
+      this.maxAlpha = Math.random() * 0.4 + 0.2;
+      this.size = Math.random() * 3 + 1;
+      this.growth = Math.random() * 0.03 + 0.005;
+      this.life = 0;
+      this.maxLife = Math.random() * 150 + 120;
+      this.fadeSpeed = 0.008;
+      this.active = true; // 重置时激活粒子
+      
+      // 随机获取奶油黄或棕色系的颜色
+      const colors = [
+        'rgba(245, 225, 164, 0.8)',  // 奶油黄
+        'rgba(166, 124, 82, 0.6)',   // 棕色
+        'rgba(245, 181, 7, 0.7)',    // 金黄色
+        'rgba(124, 74, 30, 0.5)'     // 深棕色
+      ];
+      this.color = colors[Math.floor(Math.random() * colors.length)];
+    }
+    
+    update() {
+      // 粒子未激活时不更新
+      if (!this.active) return;
+      
+      // 移动粒子
+      this.x += this.vx;
+      this.y += this.vy;
+      
+      // 限制粒子速度，防止速度持续增加
+      this.vx = Math.max(Math.min(this.vx, this.maxSpeed), -this.maxSpeed);
+      this.vy = Math.max(Math.min(this.vy, this.maxSpeed), -this.maxSpeed);
+      
+      // 粒子初始淡入 - 更平滑的淡入效果
+      if (this.alpha < this.maxAlpha && this.life < this.maxLife * 0.2) {
+        this.alpha += 0.005; // 降低淡入速度
+      }
+      
+      // 粒子逐渐淡出 - 更平滑的淡出效果
+      if (this.life > this.maxLife * 0.6) {
+        this.alpha -= this.fadeSpeed;
+        // 逐渐减慢淡出速度，使消失更加柔和
+        if (this.alpha < 0.1) {
+          this.fadeSpeed = 0.003;
+        }
+      }
+      
+      // 粒子逐渐变大，但速度更慢
+      this.size += this.growth * 0.6;
+      
+      this.life++;
+      
+      // 检查粒子是否需要重置
+      if (this.alpha <= 0.01 || 
+          this.life >= this.maxLife || 
+          this.size > 10 ||
+          this.isDeepInside() ||
+          this.isOutOfScreen()) {
+        this.active = false; // 标记为不活跃，等待再次激活
+        return;
+      }
+    }
+    
+    // 检查粒子是否已经深入屏幕内部
+    isDeepInside() {
+      const borderWidth = 120; // 从边缘向内的检测距离，降低了一些，原来是150
+      
+      // 根据粒子的起源边，检查是否已经向内移动了足够距离
+      switch(this.originEdge) {
+        case 0: // 上边
+          return this.y > borderWidth && this.life > 30; // 增加生命周期检查，原来是20
+        case 1: // 右边
+          return this.x < canvas.width - borderWidth && this.life > 30;
+        case 2: // 下边
+          return this.y < canvas.height - borderWidth && this.life > 30;
+        case 3: // 左边
+          return this.x > borderWidth && this.life > 30;
+        default:
+          return false;
+      }
+    }
+    
+    // 检查粒子是否完全离开屏幕
+    isOutOfScreen() {
+      return (this.x < -50 || 
+              this.x > canvas.width + 50 || 
+              this.y < -50 || 
+              this.y > canvas.height + 50);
+    }
+    
+    draw(ctx) {
+      // 粒子未激活时不绘制
+      if (!this.active) return;
+      
+      // 使用径向渐变，使粒子更加柔和自然
+      const gradient = ctx.createRadialGradient(
+        this.x, this.y, 0, 
+        this.x, this.y, this.size
+      );
+      
+      const color = this.color.replace(/0\.\d+\)/, this.alpha + ')');
+      gradient.addColorStop(0, color);
+      
+      // 使用正则表达式正确替换透明度
+      const middleColor = color.replace(/rgba\((\d+,\s*\d+,\s*\d+),\s*[\d.]+\)/, 'rgba($1, 0.5)');
+      gradient.addColorStop(0.6, middleColor); // 中间透明度降低
+      
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      
+      ctx.beginPath();
+      ctx.fillStyle = gradient;
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  
+  // 创建粒子池，初始时所有粒子都是不活跃的
+  const particlePool = [];
+  const maxParticles = Math.min(100, Math.max(50, Math.floor((canvas.width + canvas.height) / 30)));
+  
+  for (let i = 0; i < maxParticles; i++) {
+    const particle = new Particle();
+    particle.active = false; // 初始时所有粒子都不活跃
+    particlePool.push(particle);
+  }
+  
+  // 控制粒子生成频率的参数
+  const particlesPerSecond = 10; // 每秒生成粒子数
+  let lastParticleTime = 0; // 上次生成粒子的时间
+  let activeParticles = 0; // 当前活跃的粒子数
+  
+  // 动画循环
+  function animate(timestamp) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制带有渐变的边框效果
+    const borderWidth = 40;
+    
+    // 上边框渐变 - 使用更柔和的透明度
+    const topGradient = ctx.createLinearGradient(0, 0, 0, borderWidth);
+    topGradient.addColorStop(0, 'rgba(245, 225, 164, 0.25)');
+    topGradient.addColorStop(1, 'rgba(245, 225, 164, 0)');
+    ctx.fillStyle = topGradient;
+    ctx.fillRect(0, 0, canvas.width, borderWidth);
+    
+    // 右边框渐变
+    const rightGradient = ctx.createLinearGradient(canvas.width, 0, canvas.width - borderWidth, 0);
+    rightGradient.addColorStop(0, 'rgba(166, 124, 82, 0.25)');
+    rightGradient.addColorStop(1, 'rgba(166, 124, 82, 0)');
+    ctx.fillStyle = rightGradient;
+    ctx.fillRect(canvas.width - borderWidth, 0, borderWidth, canvas.height);
+    
+    // 下边框渐变
+    const bottomGradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - borderWidth);
+    bottomGradient.addColorStop(0, 'rgba(245, 181, 7, 0.25)');
+    bottomGradient.addColorStop(1, 'rgba(245, 181, 7, 0)');
+    ctx.fillStyle = bottomGradient;
+    ctx.fillRect(0, canvas.height - borderWidth, canvas.width, borderWidth);
+    
+    // 左边框渐变
+    const leftGradient = ctx.createLinearGradient(0, 0, borderWidth, 0);
+    leftGradient.addColorStop(0, 'rgba(124, 74, 30, 0.25)');
+    leftGradient.addColorStop(1, 'rgba(124, 74, 30, 0)');
+    ctx.fillStyle = leftGradient;
+    ctx.fillRect(0, 0, borderWidth, canvas.height);
+    
+    // 控制粒子生成频率
+    if (timestamp - lastParticleTime > 1000 / particlesPerSecond) {
+      // 尝试激活一个不活跃的粒子
+      const inactiveParticle = particlePool.find(p => !p.active);
+      if (inactiveParticle) {
+        inactiveParticle.reset();
+        activeParticles++;
+      }
+      lastParticleTime = timestamp;
+    }
+    
+    // 更新粒子活跃数量计数
+    activeParticles = 0;
+    
+    // 更新并绘制粒子
+    for (const particle of particlePool) {
+      particle.update();
+      particle.draw(ctx);
+      if (particle.active) {
+        activeParticles++;
+      }
+    }
+    
+    requestAnimationFrame(animate);
+  }
+  
+  // 启动动画
+  requestAnimationFrame(animate);
+  
+  // 返回清理函数
+  return () => {
+    window.removeEventListener('resize', resizeCanvas);
+    canvas.remove();
+  };
+}
+
+// 修改：移除滤镜相关代码，保留设置函数
 </script>
 
 <template>
@@ -690,6 +972,9 @@ if (window.__distanceEmitter__) {
     >
       <Switch />
     </div>
+    
+    <!-- 边框特效Canvas样式 -->
+    <div id="particleBorderCanvas" class="particle-border-canvas"></div>
   </div>
 </template>
 
@@ -1236,5 +1521,16 @@ body.measure-active .delete-btn-overlay {
   visibility: visible !important;
   opacity: 1 !important;
   z-index: 999999 !important;
+}
+
+/* 边框特效Canvas样式 */
+.particle-border-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999; /* 位于地图上方，其他控件下方 */
+  pointer-events: none; /* 允许点击穿透 */
 }
 </style>
