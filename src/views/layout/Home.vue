@@ -1,5 +1,6 @@
 <script setup>
-import Header from './Header.vue';
+// 删除 Header 导入
+// import Header from './Header.vue';
 import Switch from './switch.vue';
 import Map from '../Map.vue';
 import PublicMap from '../dataService/PublicMap.vue';
@@ -469,7 +470,8 @@ if (window.__distanceEmitter__) {
     </transition>
     <FriendMenu ref="friendMenuRef" @open-chat="openGlobalChatDialog" />
     <Map class="map-bg" />
-    <Header class="header-fixed"/>
+    <!-- 删除 Header 组件 -->
+    <!-- <Header class="header-fixed"/> -->
     <!-- 用户头像控件，右上角 -->
     <div
       class="user-avatar"
@@ -711,19 +713,20 @@ if (window.__distanceEmitter__) {
   height: 100vh;
   z-index: 0;
 }
-.header-fixed {
+/* 删除 header-fixed 相关样式 */
+/*.header-fixed {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   z-index: 10;
-}
+}*/
 .layout-content {
   position: absolute;
   left: 0;
-  top: 36px; /* Header高度 */
+  top: 0; /* 修改：原本是 36px (Header高度)，现在改为 0 */
   width: 100vw;
-  height: calc(100vh - 36px);
+  height: 100vh; /* 修改：原本是 calc(100vh - 36px)，现在是 100vh */
   z-index: 1;
   pointer-events: none;
   display: flex;
