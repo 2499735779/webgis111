@@ -39,6 +39,7 @@ const isSelf = ref(false);
 const isFriend = ref(false);
 const friends = ref([]);
 const pendingFriendRequests = ref([]);
+const rejectedFriendRequests = ref([]);
 const mousePositionReady = ref(false);
 const selectedUserTags = ref([]) // 存储选中用户的游戏标签
 const tagColors = ['#222', '#67c23a', '#409eff', '#a259e6', '#f56c6c'] // 标签颜色映射
@@ -49,20 +50,34 @@ watch(showUserDialog, v => setGlobalDialogVisible(v));
 
 // 获取好友列表
 const fetchFriends = async () => {
-  if (!user.value.username) return;
-  const res = await axios.get('/api/user-friends', {
-    params: { username: user.value.username }
-  });
-  friends.value = res.data || [];
+  if (!user.value || !user.value.username) return;
+  try {
+    const res = await axios.get('/api/user-friends', {
+      params: { username: user.value.username }
+    });
+    friends.value = res.data || [];
+  } catch (err) {
+    console.error('获取好友列表失败:', err);
+  }
 };
 
-// 获取待处理好友请求列表
-const fetchPendingFriendRequests = async () => {
-  if (!user.value.username) return;
-  const res = await axios.get('/api/pending-friend-requests', {
-    params: { username: user.value.username }
-  });
-  pendingFriendRequests.value = res.data || [];
+// 获取未处理的好友请求
+const fetchPendingRequests = async () => {
+  if (!user.value || !user.value.username) return;
+  try {
+    const [pendingRes, rejectedRes] = await Promise.all([
+      axios.get('/api/pending-friend-requests', {
+        params: { username: user.value.username }
+      }),
+      axios.get('/api/rejected-friend-requests', {
+        params: { username: user.value.username }
+      })
+    ]);
+    pendingFriendRequests.value = pendingRes.data || [];
+    rejectedFriendRequests.value = rejectedRes.data || [];
+  } catch (err) {
+    console.error('获取好友请求状态失败:', err);
+  }
 };
 
 // 移除addFriend本地实现，直接调用FriendMenu暴露的方法
@@ -78,52 +93,72 @@ const addFriend = async (friendName) => {
   await fetchPendingFriendRequests();
 };
 
-// 统计标签出现次数
-const getTagStats = (tags) => {
-  const stats = {}
-  tags.forEach(id => {
-    stats[id] = (stats[id] || 0) + 1
-  })
-  return stats
-}
+// 发送好友请求
+const sendFriendRequest = async (toUsername) => {
+  if (!user.value.username || !toUsername) {
+    console.log('无法发送好友请求：用户名缺失', user.value.username, toUsername);
+    return;
+  }
+  
+  console.log('发送好友请求给:', toUsername);
+  
+  try {
+    await axios.post('/api/friend-request', {
+      from: user.value.username,
+      to: toUsername
+    });
+    
+    // 更新本地状态
+    pendingFriendRequests.value.push(toUsername);
+    
+    // 显示成功消息
+    window.ElMessage && window.ElMessage.success('好友请求已发送');
+    
+    // 刷新待处理请求状态
+    fetchPendingRequests();
+  } catch (err) {
+    console.error('发送好友请求失败:', err);
+    window.ElMessage && window.ElMessage.error('发送好友请求失败');
+  }
+};
 
-// 合并标签逻辑：同一个标签出现多次，显示为一个标签，颜色随次数变化
-const getMergedTags = (tags) => {
-  if (!Array.isArray(tags)) return [];
-  const stats = getTagStats(tags)
-  return Object.entries(stats).map(([id, count]) => ({
-    id: Number(id),
-    count,
-    color: tagColors[Math.min(count - 1, tagColors.length - 1)]
-  }))
-}
-
-// 获取当前用户的游戏标签
-const myGameTags = ref([]);
-
-// 检查标签是否匹配
+// 检查标签是否匹配的函数
 const isTagMatched = (tagId) => {
-  if (!selectedUserTags.value) return false;
-  return getMatchedTags(selectedUserTags.value).some(match => match.id === tagId);
+  if (!selectedUserTags.value || !Array.isArray(selectedUserTags.value)) return false;
+  if (!myGameTags.value || !Array.isArray(myGameTags.value)) return false;
+  
+  const matchedTags = getMatchedTags(selectedUserTags.value);
+  return matchedTags.some(match => match.id === tagId);
 };
 
 // 获取匹配标签的光晕颜色
 const getMatchTagColor = (tagId) => {
-  if (!selectedUserTags.value) return '';
-  const match = getMatchedTags(selectedUserTags.value).find(m => m.id === tagId);
+  if (!selectedUserTags.value || !Array.isArray(selectedUserTags.value)) return '';
+  if (!myGameTags.value || !Array.isArray(myGameTags.value)) return '';
+  
+  const matchedTags = getMatchedTags(selectedUserTags.value);
+  const match = matchedTags.find(m => m.id === tagId);
   if (!match) return '';
   return getMatchLevelColor(match.matchLevel);
 };
 
-// 计算匹配等级的颜色
+// 获取标签匹配等级对应的颜色
 const getMatchLevelColor = (level) => {
   const colors = ['#67c23a', '#409eff', '#a259e6', '#ff9500', '#f56c6c'];
   return colors[Math.min(level - 1, 4)] || '';
 };
 
-// 获取匹配的标签
+// 获取标签匹配等级对应的文本
+const getMatchLevelText = (level) => {
+  const texts = ['意气相投', '志同道合', '惺惺相惜', '相见恨晚', '天作之合'];
+  return texts[Math.min(level - 1, 4)] || '';
+};
+
+// 计算标签匹配情况
 const getMatchedTags = (otherTags) => {
-  if (!user.value || !user.value.username || !myGameTags.value || !Array.isArray(otherTags)) return [];
+  if (!user.value || !user.value.username) return [];
+  if (!Array.isArray(otherTags) || otherTags.length === 0) return [];
+  if (!Array.isArray(myGameTags.value) || myGameTags.value.length === 0) return [];
   
   // 统计我的标签
   const myTagCounts = {};
@@ -154,29 +189,30 @@ const getMatchedTags = (otherTags) => {
   return matches;
 };
 
-// 根据匹配等级返回匹配文字
-const getMatchLevelText = (level) => {
-  const texts = ['意气相投', '志同道合', '惺惺相惜', '相见恨晚', '天作之合'];
-  return texts[Math.min(level - 1, 4)] || '';
-};
+// 定义 myGameTags，确保其在组件中可用
+const myGameTags = ref([]);
 
-// 获取我的游戏标签
+// 拉取当前用户的游戏标签
 const fetchMyGameTags = async () => {
-  if (!user.value || !user.value.username) return;
   try {
-    const res = await axios.post('/api/user-info-batch', { usernames: [user.value.username] });
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!user.username) return;
+    const res = await axios.post('/api/user-info-batch', { usernames: [user.username] });
     if (Array.isArray(res.data) && res.data.length > 0) {
       myGameTags.value = res.data[0].gameTags || [];
     }
   } catch (err) {
-    console.error('Failed to fetch user tags:', err);
+    console.error('获取用户标签失败:', err);
   }
 };
 
-// 在页面加载时获取当前用户标签
-onMounted(async () => {
-  // ...existing code...
-  await fetchMyGameTags(); // 添加这行
+// 在组件挂载时拉取用户标签
+onMounted(() => {
+  fetchMyGameTags();
+  
+  // 获取好友列表和未处理的好友请求
+  fetchFriends();
+  fetchPendingRequests();
 });
 
 // 判断是否是自己或好友
@@ -485,6 +521,21 @@ const defaultAvatar = '/blank-avatar.png'; // 确保 public 目录下有此文�
 const renderedUsers = ref([]); // 当前已渲染的用户
 let pendingUsers = [];         // 待渲染的用户
 let renderTimer = null;
+
+// 合并标签逻辑：同一个标签出现多次，显示为一个标签，颜色随次数变化
+const getMergedTags = (tags) => {
+  if (!Array.isArray(tags)) return [];
+  const stats = {};
+  tags.forEach(id => {
+    stats[id] = (stats[id] || 0) + 1;
+  });
+  const tagColors = ['#222', '#67c23a', '#409eff', '#a259e6', '#f56c6c'];
+  return Object.entries(stats).map(([id, count]) => ({
+    id: Number(id),
+    count,
+    color: tagColors[Math.min(count - 1, tagColors.length - 1)]
+  }));
+};
 
 // 渲染标记点函数 - 需要修改以暴露给全局
 const renderUserMarkers = (users) => {
@@ -1109,10 +1160,10 @@ onMounted(() => {
             v-if="!isFriend"
             type="primary"
             class="cuphead-game-btn-2d"
-            @click="friendMenuRef && friendMenuRef.value.sendFriendRequest(selectedUser.username)"
-            :disabled="isPending"
+            @click="sendFriendRequest(selectedUser.username)"
+            :disabled="pendingFriendRequests.includes(selectedUser.username)"
           >
-            <template v-if="isPending">已发送好友请求</template>
+            <template v-if="pendingFriendRequests.includes(selectedUser.username)">已发送好友请求</template>
             <template v-else>添加好友</template>
           </el-button>
           <template v-else>
@@ -1736,6 +1787,46 @@ body.measure-mode .delete-btn-overlay {
   z-index: 999999 !important;
   pointer-events: auto !important;
 }
+
+/* 用户头像标记样式 */
+.user-marker-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid white;
+  cursor: pointer;
+  object-fit: cover;
+  background: white;
+  transition: transform 0.2s, box-shadow 0.3s;
+}
+
+.user-marker-avatar:hover {
+  transform: scale(1.1);
+  z-index: 2;
+}
+
+/* 匹配发光等级样式，基础样式已在JS中动态应用 */
+.level-0 {
+  box-shadow: none;
+}
+
+.level-1 {
+  box-shadow: 0 0 8px 4px #67c23a, 0 0 12px 8px rgba(103, 194, 58, 0.5);
+}
+
+.level-2 {
+  box-shadow: 0 0 8px 4px #409eff, 0 0 12px 8px rgba(64, 158, 255, 0.5);
+}
+
+.level-3 {
+  box-shadow: 0 0 8px 4px #a259e6, 0 0 12px 8px rgba(162, 89, 230, 0.5);
+}
+
+.level-4 {
+  box-shadow: 0 0 8px 4px #ff9500, 0 0 12px 8px rgba(255, 149, 0, 0.5);
+}
+
+.level-5 {
+  box-shadow: 0 0 8px 4px #f56c6c, 0 0 12px 8px rgba(245, 108, 108, 0.5);
+}
 </style>
-
-

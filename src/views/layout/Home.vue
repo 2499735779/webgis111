@@ -460,6 +460,7 @@ onMounted(() => {
   nextTick(() => {
     initParticleBorder();
   });
+  console.log('[Home.vue] Drawdistance mounted');
 });
 
 // 初始化粒子边框特效
