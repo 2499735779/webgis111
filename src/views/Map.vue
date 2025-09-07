@@ -27,6 +27,9 @@ let olmap = null;
 let userPositionOverlay = null; // 实时位置覆盖物
 let watchId = null;             // 定时器ID
 
+// 添加一个变量来存储错误消息的计时器ID
+let errorMsgTimer = null;
+
 const showNearby = ref(false);
 const nearbyUsers = ref([]);
 const overlays = reactive([]);
@@ -230,6 +233,12 @@ onBeforeUnmount(() => {
   if (olmap && userPositionOverlay) {
     olmap.removeOverlay(userPositionOverlay);
     userPositionOverlay = null;
+  }
+  
+  // 清除错误消息计时器
+  if (errorMsgTimer) {
+    clearTimeout(errorMsgTimer);
+    errorMsgTimer = null;
   }
 });
 
