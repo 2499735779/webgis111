@@ -972,6 +972,7 @@ function initParticleBorder() {
 </template>
 
 <style>
+/* 修复：检查全局样式是否导致黑屏 */
 .home-root {
   position: fixed;
   left: 0;
@@ -982,6 +983,7 @@ function initParticleBorder() {
   margin: 0;
   padding: 0;
   z-index: 0;
+  background-color: #fff; /* 添加白色背景防止透明导致黑屏 */
 }
 .map-bg {
   position: fixed;
@@ -1508,14 +1510,52 @@ body.measure-active .delete-btn-overlay {
   z-index: 999999 !important;
 }
 
-/* 边框特效Canvas样式 */
+/* 确保所有茶杯头风格弹窗没有白边 */
+.el-dialog__wrapper .el-dialog {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: visible !important;
+  margin: 0 !important;
+}
+
+.el-dialog__wrapper .el-dialog__body,
+.el-dialog__wrapper .el-dialog__header,
+.el-dialog__wrapper .el-dialog__content,
+.el-dialog__wrapper .el-dialog__footer {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 特别针对添加好友弹窗的样式 */
+.add-friend-dialog-center .el-dialog {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+.add-friend-dialog-center .el-dialog__header,
+.add-friend-dialog-center .el-dialog__body,
+.add-friend-dialog-center .el-dialog__content {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+/* 修复：控制粒子边框画布层级，确保不会导致黑屏 */
 .particle-border-canvas {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 999; /* 位于地图上方，其他控件下方 */
-  pointer-events: none; /* 允许点击穿透 */
+  z-index: 100; /* 降低层级，确保不会覆盖整个界面 */
+  pointer-events: none;
+  opacity: 0.6; /* 降低不透明度，便于调试 */
 }
 </style>

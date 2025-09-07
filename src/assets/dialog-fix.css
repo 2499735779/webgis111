@@ -1,0 +1,64 @@
+/* 全局弹窗样式修复 - 解决白边和间隙问题 */
+
+/* 基础对话框样式重置 */
+.el-dialog {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 弹窗居中显示 */
+.el-dialog__wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.el-dialog__header,
+.el-dialog__body {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 隐藏原生标题按钮等元素 */
+.cuphead-dialog .el-dialog__title,
+.cuphead-dialog .el-dialog__headerbtn,
+.user-info-dialog .el-dialog__title,
+.user-info-dialog .el-dialog__headerbtn {
+  display: none !important;
+}
+
+/* 好友主页弹窗样式覆盖 */
+.user-info-cuphead-bg {
+  background: linear-gradient(135deg, #e0bf18 0%, #f3b90a 100%);
+  border-radius: 40px;
+  min-width: 440px;
+  min-height: 540px;
+  max-width: 620px;
+  max-height: 720px;
+  aspect-ratio: 1/1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 12px 48px rgba(80,60,30,0.18),
+    0 0 0 16px #c7a16b inset,
+    0 0 0 3px #7c4a1e;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 弹窗内容背景样式 */
+.cuphead-content-bg {
+  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%);
+  border-radius: 32px;
+  box-shadow: 0 4px 24px rgba(166,124,82,0.08);
+  padding: 32px 0 24px 0;
+  margin: 0 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+

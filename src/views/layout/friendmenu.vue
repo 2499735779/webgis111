@@ -73,6 +73,7 @@
       :modal="true"
       :close-on-click-modal="true"
       :show-close="false"
+      :z-index="4500"
     >
       <template #header="{ close }">
         <div class="cuphead-header-bar">
@@ -153,7 +154,7 @@
       append-to-body
       class="user-info-dialog cuphead-bg"
       :wrapper-class="'user-info-cuphead-bg'"
-      :z-index="4100"
+      :z-index="4600"
       :show-close="false"
       @close="handleFriendProfileClose"
     >
@@ -166,7 +167,7 @@
         </div>
       </template>
       <!-- 好友主页弹窗内容部分 -->
-      <div class="cuphead-content-bg" v-if="selectedFriend">
+      <div class="cuphead-content-bg friend-profile-content" v-if="selectedFriend">
         <div class="cuphead-avatar-area">
           <div class="avatar-frame">
             <el-avatar :size="120" :src="selectedFriend.avatar || defaultAvatar" class="avatar-img" />
@@ -259,6 +260,9 @@ const backendOrigin = 'https://kexiaohua.online'; // 后端部署域名
 const showFriendProfile = ref(false);
 const selectedFriend = ref(null);
 const tagColors = ['#222', '#67c23a', '#409eff', '#a259e6', '#f56c6c']; // 标签颜色映射
+
+// 新增：获取当前用户的游戏标签
+const myGameTags = ref([]);
 
 // 工具函数：补全头像URL为后端绝对路径
 function fixAvatarUrl(avatar) {
@@ -517,120 +521,6 @@ async function clearFriendListEvents() {
   await axios.post('/api/friend-list-events/read', { username: user.value.username });
 }
 
-// 组件卸载时移除全局事件监听
-onUnmounted(() => {
-  document.removeEventListener('mousedown', onGlobalClick, true);
-});
-
-onMounted(async () => {
-  // 初次加载数据
-  await fetchFriends();
-  await fetchUnread();
-  await fetchFriendRequests();
-  await fetchPendingFriendRequests()
-
-  // 不再使用轮询（已删除如下代码）：
-  // unreadTimer = setInterval(fetchUnread, 1000)
-  // friendReqTimer = setInterval(fetchFriendRequests, 1000)
-
-  // 初始化 WebSocket 连接，并加入房间
-  const { socket, joinRoom } = useSocket();
-  if (user.value.username) {
-    joinRoom(user.value.username);
-  }
-
-  // 实时监听未读消息变化，及时刷新红点
-  socket.value.on('unread-updated', (data) => {
-    unreadMap.value = data || {};
-  });
-
-  // 实时监听好友请求变化，及时刷新好友请求和红点
-  socket.value.on('pending-requests-updated', () => {
-    fetchFriendRequests();
-  });
-
-  // 实时监听好友列表变化，及时刷新好友列表
-  socket.value.on('friend-list-updated', () => {
-    fetchFriends();
-  });
-
-  // 新增：监听收到新聊天消息时刷新未读
-  socket.value.on('chat-message', (msg) => {
-    // 只处理发给自己的消息
-    if (msg && msg.to === user.value.username) {
-      fetchUnread();
-    }
-  });
-
-  // 新增：监听被删除好友通知
-  socket.value.on('friend-removed-notice', (data) => {
-    window.ElMessage && window.ElMessage.warning(`你已被 ${data.from} 移除好友`);
-    fetchFriends();
-  });
-  
-  // 新增：添加点击外部关闭功能
-  document.addEventListener('click', handleDocumentClick);
-  
-  // 新增：设置地图事件监听，在地图操作时关闭好友列表
-  setupMapEventListeners();
-});
-
-onBeforeUnmount(() => {
-  // 如果你的全局 socket 在整个 App 生命周期都需要，无须在此断开连接，
-  // 如果需要局部断开，可以解除事件监听:
-  // socket.value.off('unread-updated');
-  // socket.value.off('new-friend-request');
-  // socket.value.off('friend-list-updated');
-  
-  // 新增：移除点击外部关闭功能监听器
-  document.removeEventListener('click', handleDocumentClick);
-  
-  // 新增：移除地图事件监听器
-  if (window.map) {
-    ['movestart', 'zoomstart', 'dragstart', 'pinchstart'].forEach(eventName => {
-      window.map.un(eventName, handleMapEvent);
-    });
-  }
-});
-
-// 新增：处理文档点击事件，当点击好友列表外部时关闭列表
-function handleDocumentClick(e) {
-  // 如果好友列表未显示，无需处理
-  if (!showFriendList.value) return;
-  
-  // 检查点击是否在好友列表或其触发区域内
-  const friendList = document.querySelector('.friend-list-sidebar');
-  const hoverArea = document.querySelector('.friend-list-hover-area');
-  const friendTipBtn = document.querySelector('.friend-tip-btn, .friend-tip-svg-abs');
-  
-  if (friendList && !friendList.contains(e.target) && 
-      (!hoverArea || !hoverArea.contains(e.target)) &&
-      (!friendTipBtn || !friendTipBtn.contains(e.target))) {
-    // 只有未锁定时才允许关闭好友列表
-    if (!contextMenuLock.value) {
-      showFriendList.value = false;
-    }
-  }
-}
-
-// 新增：设置地图事件监听
-function setupMapEventListeners() {
-  if (!window.map) return;
-  
-  // 定义处理地图事件的函数
-  window.handleMapEvent = function() {
-    // 只有未锁定时才允许关闭好友列表
-    if (showFriendList.value && !contextMenuLock.value) {
-      showFriendList.value = false;
-    }
-  };
-  
-  // 为地图添加移动、缩放、拖拽和捏合事件监听
-  ['movestart', 'zoomstart', 'dragstart', 'pinchstart'].forEach(eventName => {
-    window.map.on(eventName, window.handleMapEvent);
-  });
-}
-
 // 新增：合并标签逻辑（同一个标签出现多次，显示为一个标签，颜色随次数变化）
 const getMergedTags = (tags) => {
   if (!Array.isArray(tags)) return [];
@@ -644,9 +534,6 @@ const getMergedTags = (tags) => {
     color: tagColors[Math.min(count - 1, tagColors.length - 1)]
   }));
 };
-
-// 新增：获取当前用户的游戏标签
-const myGameTags = ref([]);
 
 // 计算相同标签并生成匹配信息的函数
 const getMatchedTags = (otherTags) => {
@@ -724,12 +611,6 @@ const fetchMyGameTags = async () => {
   }
 };
 
-// 在页面加载时获取当前用户标签
-onMounted(async () => {
-  // ...existing code...
-  await fetchMyGameTags(); // 添加这行
-});
-
 // 新增：查看好友主页方法
 const viewFriendProfile = async (friend) => {
   // 如果是通过右键菜单调用，需要关闭右键菜单
@@ -770,6 +651,117 @@ const handleFriendProfileClose = () => {
   showFriendProfile.value = false;
   selectedFriend.value = null;
 };
+
+// 新增：处理文档点击事件，当点击好友列表外部时关闭列表
+function handleDocumentClick(e) {
+  // 如果好友列表未显示，无需处理
+  if (!showFriendList.value) return;
+  
+  // 检查点击是否在好友列表或其触发区域内
+  const friendList = document.querySelector('.friend-list-sidebar');
+  const hoverArea = document.querySelector('.friend-list-hover-area');
+  const friendTipBtn = document.querySelector('.friend-tip-btn, .friend-tip-svg-abs');
+  
+  if (friendList && !friendList.contains(e.target) && 
+      (!hoverArea || !hoverArea.contains(e.target)) &&
+      (!friendTipBtn || !friendTipBtn.contains(e.target))) {
+    // 只有未锁定时才允许关闭好友列表
+    if (!contextMenuLock.value) {
+      showFriendList.value = false;
+    }
+  }
+}
+
+// 新增：设置地图事件监听
+function setupMapEventListeners() {
+  if (!window.map) return;
+  
+  // 定义处理地图事件的函数
+  window.handleMapEvent = function() {
+    // 只有未锁定时才允许关闭好友列表
+    if (showFriendList.value && !contextMenuLock.value) {
+      showFriendList.value = false;
+    }
+  };
+  
+  // 为地图添加移动、缩放、拖拽和捏合事件监听
+  ['movestart', 'zoomstart', 'dragstart', 'pinchstart'].forEach(eventName => {
+    window.map.on(eventName, window.handleMapEvent);
+  });
+}
+
+// 组件卸载时移除全局事件监听
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onGlobalClick, true);
+});
+
+onMounted(async () => {
+  // 初次加载数据
+  await fetchFriends();
+  await fetchUnread();
+  await fetchFriendRequests();
+  await fetchPendingFriendRequests();
+  await fetchMyGameTags(); // 获取当前用户标签
+
+  // 初始化 WebSocket 连接，并加入房间
+  const { socket, joinRoom } = useSocket();
+  if (user.value.username) {
+    joinRoom(user.value.username);
+  }
+
+  // 实时监听未读消息变化，及时刷新红点
+  socket.value.on('unread-updated', (data) => {
+    unreadMap.value = data || {};
+  });
+
+  // 实时监听好友请求变化，及时刷新好友请求和红点
+  socket.value.on('pending-requests-updated', () => {
+    fetchFriendRequests();
+  });
+
+  // 实时监听好友列表变化，及时刷新好友列表
+  socket.value.on('friend-list-updated', () => {
+    fetchFriends();
+  });
+
+  // 新增：监听收到新聊天消息时刷新未读
+  socket.value.on('chat-message', (msg) => {
+    // 只处理发给自己的消息
+    if (msg && msg.to === user.value.username) {
+      fetchUnread();
+    }
+  });
+
+  // 新增：监听被删除好友通知
+  socket.value.on('friend-removed-notice', (data) => {
+    window.ElMessage && window.ElMessage.warning(`你已被 ${data.from} 移除好友`);
+    fetchFriends();
+  });
+  
+  // 新增：添加点击外部关闭功能
+  document.addEventListener('click', handleDocumentClick);
+  
+  // 新增：设置地图事件监听，在地图操作时关闭好友列表
+  setupMapEventListeners();
+});
+
+onBeforeUnmount(() => {
+  // 如果你的全局 socket 在整个 App 生命周期都需要，无须在此断开连接，
+  // 如果需要局部断开，可以解除事件监听:
+  // socket.value.off('unread-updated');
+  // socket.value.off('new-friend-request');
+  // socket.value.off('friend-list-updated');
+  
+  // 新增：移除点击外部关闭功能监听器
+  document.removeEventListener('click', handleDocumentClick);
+  
+  // 新增：移除地图事件监听器
+  if (window.map) {
+    ['movestart', 'zoomstart', 'dragstart', 'pinchstart'].forEach(eventName => {
+      window.map.un(eventName, handleMapEvent);
+    });
+  }
+});
 
 // 暴露部分方法给父组件使用
 defineExpose({
@@ -1202,6 +1194,18 @@ defineExpose({
   color: #7c4a1e;
 }
 
+/* 好友主页内容区域样式强化 */
+.friend-profile-content {
+  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%) !important;
+  border: 2px solid #a67c52 !important;
+  border-top-width: 0 !important;
+  border-radius: 0 0 24px 24px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+  padding: 32px 16px 24px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
 /* 茶杯头风格弹窗 */
 :deep(.cuphead-dialog) {
   background: transparent !important;
@@ -1214,11 +1218,21 @@ defineExpose({
   padding: 0 !important;
   margin: 0 !important;
   background: transparent !important;
+  border: none !important; /* 添加这行解决白边问题 */
+  height: auto !important; /* 确保高度自动调整 */
+  min-height: 0 !important; /* 确保没有最小高度限制 */
+  overflow: visible !important; /* 确保可见性 */
 }
 
 :deep(.cuphead-dialog .el-dialog__body) {
   padding: 0 !important;
   background: transparent !important;
+  margin-top: 0 !important; /* 消除顶部间距 */
+}
+
+:deep(.cuphead-dialog .el-dialog__content) {
+  margin-top: 0 !important; /* 消除顶部间距 */
+  padding-top: 0 !important; /* 消除顶部内边距 */
 }
 
 :deep(.cuphead-dialog .el-dialog) {
@@ -1227,6 +1241,7 @@ defineExpose({
   box-shadow: none !important;
   margin: 0 !important;
   padding: 0 !important;
+  overflow: visible !important;
 }
 
 /* 重要：修复对话框背景透明问题 */
@@ -1240,280 +1255,23 @@ defineExpose({
   margin: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-}
-
-/* 弹窗内容区域 - 保持阴影与边框 */
-.cuphead-header-bar {
-  background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%);
-  border: 2px solid #a67c52;
-  border-bottom-width: 0;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-.cuphead-dialog-content {
-  background: #f5e1a4;
-  border: 2px solid #a67c52;
-  border-top-width: 0;
-  border-radius: 0 0 24px 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-/* 右键菜单样式 - 新增茶杯头风格 */
-.friend-context-popover {
-  min-width: 160px;
-  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%);
-  border: 2px solid #a67c52;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(255, 255, 255, 0.5) inset;
-  overflow: hidden;
-  padding: 8px 0;
-  z-index: 6000;
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-}
-
-.context-menu-list {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-.context-menu-item {
-  padding: 10px 16px;
-  font-size: 16px;
-  color: #7c4a1e;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-weight: bold;
-  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
-  position: relative;
-  text-align: center;
-}
-
-.context-menu-item:hover {
-  background: rgba(166, 124, 82, 0.2);
-  transform: translateY(-1px);
-}
-
-.context-menu-item:active {
-  transform: translateY(1px);
-}
-
-.context-menu-item::after {
-  content: "";
-  position: absolute;
-  left: 10%;
-  right: 10%;
-  bottom: 0;
-  height: 1px;
-  background: rgba(166, 124, 82, 0.3);
-  border-radius: 50%;
-}
-
-.context-menu-item:last-child::after {
-  display: none;
-}
-
-.context-menu-item-danger {
-  color: #e64242;
-  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7);
-}
-
-.context-menu-item-danger:hover {
-  background: rgba(245, 108, 108, 0.1);
-}
-
-.context-menu-item-cancel {
-  font-weight: normal;
-  color: #606266;
-}
-
-.context-menu-item-cancel:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* 查看好友主页选项特殊样式 */
-.context-menu-item-profile {
-  color: #409eff;
-  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7);
-}
-
-.context-menu-item-profile:hover {
-  background: rgba(64, 158, 255, 0.1);
-}
-
-/* 好友主页弹窗样式 */
-.cuphead-avatar-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.avatar-frame {
-  position: relative;
-  width: 140px;
-  height: 140px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-img {
-  box-shadow: 0 0 24px #f5b507, 0 2px 8px rgba(0,0,0,0.10);
-  border: 4px solid #f5b507;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.avatar-glow {
-  position: absolute;
-  left: 0; top: 0;
-  width: 140px; height: 140px;
-  border-radius: 50%;
-  box-shadow: 0 0 32px 12px #f5b507, 0 0 0 8px #fff inset;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.user-name {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  font-size: 28px;
-  font-weight: bold;
-  color: #a67c52;
-  margin-top: 10px;
-  text-shadow: 2px 2px 0 #f5e1a4, 0 2px 8px #a67c52;
-}
-
-.cuphead-divider {
-  width: 80%;
-  height: 0;
-  border-bottom: 2px dashed #e7cfa2;
-  margin: 18px 0;
-  opacity: 0.7;
-}
-
-.section-title {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  font-size: 22px;
-  font-weight: bold;
-  color: #7c4a1e;
-  margin-bottom: 10px;
-  text-shadow: 1px 1px 0 #f5e1a4;
-  letter-spacing: 2px;
-  text-align: center;
-}
-
-.tag-list {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.cuphead-tag {
-  border-radius: 16px !important;
-  box-shadow: 0 2px 8px rgba(166,124,82,0.10);
-  font-size: 18px !important;
-  padding: 6px 18px !important;
-  font-family: 'JiangxiZhuokai', cursive, sans-serif !important;
   border: none !important;
-  font-weight: bold !important;
-  transition: background 0.2s, box-shadow 0.2s;
+  overflow: visible !important;
 }
 
-.empty-tags-message {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  font-size: 18px;
-  color: #a67c52;
-  text-align: center;
-  margin: 10px 0;
-  font-style: italic;
-  opacity: 0.8;
+:deep(.add-friend-dialog-center .el-dialog__body) {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
 }
 
-/* 新增匹配等级样式 */
-.match-levels-container {
-  width: 100%;
-  margin-top: 20px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  border: 2px dashed #e7cfa2;
-}
-
-.match-levels-title {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  font-size: 20px;
-  font-weight: bold;
-  color: #7c4a1e;
-  text-align: center;
-  margin-bottom: 10px;
-  text-shadow: 1px 1px 0 #f5e1a4;
-}
-
-.match-level-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
-}
-
-.match-tag-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.match-tag-name {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  font-size: 16px;
-  color: #7c4a1e;
-}
-
-.match-tag-level {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  font-size: 18px;
-  font-weight: bold;
-  letter-spacing: 1px;
-  /* 颜色和文字发光在行内样式中设置 */
+:deep(.add-friend-dialog-center .el-dialog__header) {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  position: relative !important;
+  z-index: 10 !important;
 }
 </style>
-
-<!-- 全局样式覆盖 - 确保所有 .cuphead-dialog 样式都被覆盖 -->
-<style>
-/* 好友主页弹窗样式覆盖 */
-.user-info-cuphead-bg {
-  background: linear-gradient(135deg, #e0bf18 0%, #f3b90a 100%);
-  border-radius: 40px;
-  min-width: 440px;
-  min-height: 540px;
-  max-width: 620px;
-  max-height: 720px;
-  aspect-ratio: 1/1.2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow:
-    0 12px 48px rgba(80,60,30,0.18),
-    0 0 0 16px #c7a16b inset,
-    0 0 0 3px #7c4a1e;
-  position: relative;
-  overflow: hidden;
-}
-
-.cuphead-content-bg {
-  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%);
-  border-radius: 32px;
-  box-shadow: 0 4px 24px rgba(166,124,82,0.08);
-  padding: 32px 0 24px 0;
-  margin: 0 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-}
-</style>
-
