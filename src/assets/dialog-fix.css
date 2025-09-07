@@ -1,24 +1,34 @@
-/* 全局弹窗样式修复 - 解决白边和间隙问题 */
+/* 全局弹窗样式修复 - 只针对特定元素应用茶杯头主题 */
 
-/* 基础对话框样式重置 */
+/* 1. 确保全局背景色不会被影响 */
+body, .home-root {
+  background-color: #fff !important; /* 强制白色背景，防止黑屏 */
+}
+
+/* 2. 只对对话框应用特定样式，不影响全局 */
 .el-dialog {
-  background: transparent !important;
-  border: none !important;
+  --el-dialog-bg-color: #fffbe6;
+  --el-dialog-box-shadow: 0 4px 24px rgba(166,124,82,0.15);
+  --el-dialog-border-radius: 24px;
+  border: 2px solid #a67c52;
+  margin: 0 auto;
+  overflow: visible;
 }
 
 /* 弹窗居中显示 */
 .el-dialog__wrapper {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.el-dialog__header,
-.el-dialog__body {
-  padding: 0 !important;
-  margin: 0 !important;
-  background: transparent !important;
-  border: none !important;
+/* 只对特定对话框应用特殊样式，避免影响全局 */
+.cuphead-dialog .el-dialog,
+.add-friend-dialog-center .el-dialog,
+.user-info-dialog .el-dialog {
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 /* 隐藏原生标题按钮等元素 */
@@ -26,7 +36,25 @@
 .cuphead-dialog .el-dialog__headerbtn,
 .user-info-dialog .el-dialog__title,
 .user-info-dialog .el-dialog__headerbtn {
-  display: none !important;
+  display: none;
+}
+
+/* 特别针对添加好友弹窗的修复 */
+.add-friend-dialog-center .el-dialog__header,
+.user-info-dialog .el-dialog__header,
+.cuphead-dialog .el-dialog__header {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+}
+
+.add-friend-dialog-center .el-dialog__body,
+.user-info-dialog .el-dialog__body,
+.cuphead-dialog .el-dialog__body {
+  padding: 0;
+  margin: 0;
+  background: transparent;
 }
 
 /* 好友主页弹窗样式覆盖 */
@@ -60,5 +88,62 @@
   flex-direction: column;
   align-items: center;
   position: relative;
+}
+
+/* 确保弹窗内容之间没有间隙 */
+.cuphead-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%);
+  border-bottom: 2px solid #a67c52;
+  border-radius: 24px 24px 0 0;
+  margin-bottom: -1px;
+}
+
+/* 3. 合理设置z-index，避免覆盖主要内容 */
+.el-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000; /* 降低z-index，防止覆盖全局内容 */
+}
+
+/* 确保地图和主要内容区域可见 */
+.ol-viewport, .main-content, .map-bg {
+  z-index: 1 !important; /* 确保地图可见 */
+}
+
+/* 修复粒子边框画布层级 */
+.particle-border-canvas {
+  z-index: 100 !important;
+  pointer-events: none;
+  opacity: 0.6;
+}
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(90deg, #fffbe6 0%, #f5e1a4 100%);
+  border-bottom: 2px solid #a67c52;
+  border-radius: 24px 24px 0 0;
+  margin-bottom: -1px !important;
+}
+
+/* 解决弹窗位置和居中问题 */
+.el-overlay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 4500 !important; /* 提高弹窗层级 */
+}
+
+/* 修复普通弹窗样式 */
+.el-message-box {
+  border: 2px solid #a67c52 !important;
+  background: linear-gradient(135deg, #fffbe6 0%, #f5e1a4 100%) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 16px rgba(166,124,82,0.2) !important;
 }
 

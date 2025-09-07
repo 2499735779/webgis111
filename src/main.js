@@ -30,7 +30,7 @@ app.use(ElementPlus, { locale: zhCn })
 // 引入全局样式覆盖文件
 import './views/graDraw/overrideStyles.css'
 
-// 引入全局弹窗样式修复
-import '@/assets/dialog-fix.css'  // 显式导入全局样式文件
+// 导入全局样式文件
+import '@/assets/dialog-fix.css'
 
 app.mount('#app')
