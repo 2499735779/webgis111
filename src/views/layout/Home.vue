@@ -968,6 +968,17 @@ function initParticleBorder() {
     
     <!-- 边框特效Canvas样式 -->
     <div id="particleBorderCanvas" class="particle-border-canvas"></div>
+
+    <!-- 头像大图预览弹窗 -->
+    <el-dialog
+      v-model="showAvatarModal"
+      title="头像预览"
+      width="400px"
+      :show-close="true"
+      class="avatar-preview-dialog"
+    >
+      <img :src="avatarModalUrl" alt="头像大图" class="avatar-preview-img" />
+    </el-dialog>
   </div>
 </template>
 
@@ -1517,5 +1528,17 @@ body.measure-active .delete-btn-overlay {
   height: 100vh;
   z-index: 999; /* 位于地图上方，其他控件下方 */
   pointer-events: none; /* 允许点击穿透 */
+}
+
+/* 头像大图预览弹窗样式 */
+.avatar-preview-dialog {
+  text-align: center;
+}
+
+.avatar-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 </style>

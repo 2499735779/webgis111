@@ -52,7 +52,7 @@
           @contextmenu.prevent.stop="onFriendContextMenu($event, f)"
           ref="friendItemRefs"
         >
-          <el-avatar :size="36" :src="f.avatar || defaultAvatar" />
+          <el-avatar :size="36" :src="f.avatar || defaultAvatar" @click.stop="openAvatarModal(f.avatar)" />
           <span class="friend-list-name">{{ f.username }}</span>
           <span
             v-if="unreadMap[f.username] > 0"
@@ -232,6 +232,17 @@
           >发送消息</el-button>
         </div>
       </div>
+    </el-dialog>
+
+    <!-- 头像大图预览弹窗 -->
+    <el-dialog
+      v-model="showAvatarModal"
+      title="头像预览"
+      width="400px"
+      :show-close="true"
+      class="avatar-preview-dialog"
+    >
+      <img :src="avatarModalUrl" alt="头像大图" class="avatar-preview-img" />
     </el-dialog>
   </div>
   <div class="friend-list-hover-area" @mouseenter="handleFriendListEnter"></div>
@@ -769,6 +780,21 @@ const viewFriendProfile = async (friend) => {
 const handleFriendProfileClose = () => {
   showFriendProfile.value = false;
   selectedFriend.value = null;
+};
+
+// 新增：头像大图预览相关
+const showAvatarModal = ref(false); // 控制头像大图弹窗的显示状态
+const avatarModalUrl = ref(''); // 存储当前显示的大图 URL
+
+// 打开头像大图弹窗
+const openAvatarModal = (url) => {
+  avatarModalUrl.value = url || defaultAvatar;
+  showAvatarModal.value = true;
+};
+
+// 关闭头像大图弹窗
+const closeAvatarModal = () => {
+  showAvatarModal.value = false;
 };
 
 // 暴露部分方法给父组件使用
@@ -1479,6 +1505,18 @@ defineExpose({
   font-weight: bold;
   letter-spacing: 1px;
   /* 颜色和文字发光在行内样式中设置 */
+}
+
+/* 头像大图预览弹窗样式 */
+.avatar-preview-dialog {
+  text-align: center;
+}
+
+.avatar-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 </style>
 
