@@ -263,6 +263,9 @@ const handleFriendClick = (f) => {
     emit('open-chat', f);
   }
   unreadMap.value[f.username] = 0;
+  
+  // 新增：点击好友打开聊天窗口时自动关闭好友列表
+  showFriendList.value = false;
 };
 
 // 新增：添加好友弹窗相关
@@ -466,6 +469,12 @@ onMounted(async () => {
     window.ElMessage && window.ElMessage.warning(`你已被 ${data.from} 移除好友`);
     fetchFriends();
   });
+  
+  // 新增：添加点击外部关闭功能
+  document.addEventListener('click', handleDocumentClick);
+  
+  // 新增：设置地图事件监听，在地图操作时关闭好友列表
+  setupMapEventListeners();
 });
 
 onBeforeUnmount(() => {
@@ -474,7 +483,55 @@ onBeforeUnmount(() => {
   // socket.value.off('unread-updated');
   // socket.value.off('new-friend-request');
   // socket.value.off('friend-list-updated');
+  
+  // 新增：移除点击外部关闭功能监听器
+  document.removeEventListener('click', handleDocumentClick);
+  
+  // 新增：移除地图事件监听器
+  if (window.map) {
+    ['movestart', 'zoomstart', 'dragstart', 'pinchstart'].forEach(eventName => {
+      window.map.un(eventName, handleMapEvent);
+    });
+  }
 });
+
+// 新增：处理文档点击事件，当点击好友列表外部时关闭列表
+function handleDocumentClick(e) {
+  // 如果好友列表未显示，无需处理
+  if (!showFriendList.value) return;
+  
+  // 检查点击是否在好友列表或其触发区域内
+  const friendList = document.querySelector('.friend-list-sidebar');
+  const hoverArea = document.querySelector('.friend-list-hover-area');
+  const friendTipBtn = document.querySelector('.friend-tip-btn, .friend-tip-svg-abs');
+  
+  if (friendList && !friendList.contains(e.target) && 
+      (!hoverArea || !hoverArea.contains(e.target)) &&
+      (!friendTipBtn || !friendTipBtn.contains(e.target))) {
+    // 只有未锁定时才允许关闭好友列表
+    if (!contextMenuLock.value) {
+      showFriendList.value = false;
+    }
+  }
+}
+
+// 新增：设置地图事件监听
+function setupMapEventListeners() {
+  if (!window.map) return;
+  
+  // 定义处理地图事件的函数
+  window.handleMapEvent = function() {
+    // 只有未锁定时才允许关闭好友列表
+    if (showFriendList.value && !contextMenuLock.value) {
+      showFriendList.value = false;
+    }
+  };
+  
+  // 为地图添加移动、缩放、拖拽和捏合事件监听
+  ['movestart', 'zoomstart', 'dragstart', 'pinchstart'].forEach(eventName => {
+    window.map.on(eventName, window.handleMapEvent);
+  });
+}
 
 // 暴露部分方法给父组件使用
 defineExpose({
