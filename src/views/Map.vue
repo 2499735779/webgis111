@@ -98,24 +98,108 @@ const getMergedTags = (tags) => {
   }))
 }
 
+// 获取当前用户的游戏标签
+const myGameTags = ref([]);
+
+// 检查标签是否匹配
+const isTagMatched = (tagId) => {
+  if (!selectedUserTags.value) return false;
+  return getMatchedTags(selectedUserTags.value).some(match => match.id === tagId);
+};
+
+// 获取匹配标签的光晕颜色
+const getMatchTagColor = (tagId) => {
+  if (!selectedUserTags.value) return '';
+  const match = getMatchedTags(selectedUserTags.value).find(m => m.id === tagId);
+  if (!match) return '';
+  return getMatchLevelColor(match.matchLevel);
+};
+
+// 计算匹配等级的颜色
+const getMatchLevelColor = (level) => {
+  const colors = ['#67c23a', '#409eff', '#a259e6', '#ff9500', '#f56c6c'];
+  return colors[Math.min(level - 1, 4)] || '';
+};
+
+// 获取匹配的标签
+const getMatchedTags = (otherTags) => {
+  if (!user.value || !user.value.username || !myGameTags.value || !Array.isArray(otherTags)) return [];
+  
+  // 统计我的标签
+  const myTagCounts = {};
+  myGameTags.value.forEach(tag => {
+    myTagCounts[tag] = (myTagCounts[tag] || 0) + 1;
+  });
+  
+  // 统计对方标签
+  const otherTagCounts = {};
+  otherTags.forEach(tag => {
+    otherTagCounts[tag] = (otherTagCounts[tag] || 0) + 1;
+  });
+  
+  // 查找重复标签并计算匹配度
+  const matches = [];
+  Object.keys(myTagCounts).forEach(tag => {
+    if (otherTagCounts[tag]) {
+      // 计算共同标签数（取两边出现次数的较小值）
+      const count = Math.min(myTagCounts[tag], otherTagCounts[tag]);
+      matches.push({
+        id: Number(tag),
+        count,
+        matchLevel: Math.min(count, 5), // 匹配等级，最高5级
+      });
+    }
+  });
+  
+  return matches;
+};
+
+// 根据匹配等级返回匹配文字
+const getMatchLevelText = (level) => {
+  const texts = ['意气相投', '志同道合', '惺惺相惜', '相见恨晚', '天作之合'];
+  return texts[Math.min(level - 1, 4)] || '';
+};
+
+// 获取我的游戏标签
+const fetchMyGameTags = async () => {
+  if (!user.value || !user.value.username) return;
+  try {
+    const res = await axios.post('/api/user-info-batch', { usernames: [user.value.username] });
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      myGameTags.value = res.data[0].gameTags || [];
+    }
+  } catch (err) {
+    console.error('Failed to fetch user tags:', err);
+  }
+};
+
+// 在页面加载时获取当前用户标签
+onMounted(async () => {
+  // ...existing code...
+  await fetchMyGameTags(); // 添加这行
+});
+
 // 判断是否是自己或好友
 const handleUserMarkerClick = async (u, e) => {
-  // 新增：测距时禁止弹窗
-  if (window.__drawdistance_disable_userinfo__) {
-    console.log('[Map.vue] 测距激活，禁止弹窗，点击用户：', u.username, e);
-    if (e) e.stopPropagation();
+  e.stopPropagation();
+  const centerUid = user.value.username;
+  if (u.username === centerUid) {
+    errorMsg.value = '这是您自己的位置';
+    // 自动清除消息
+    if (errorMsgTimer) {
+      clearTimeout(errorMsgTimer);
+    }
+    errorMsgTimer = setTimeout(() => {
+      errorMsg.value = '';
+      errorMsgTimer = null;
+    }, 5000);
     return;
   }
-  console.log('[Map.vue] 正常弹窗，点击用户：', u.username, e);
-  selectedUser.value = u;
-  selectedUserTags.value = []; // 重置标签
-  showUserDialog.value = true;
-  isSelf.value = u.username === user.value.username;
-  await fetchFriends();
-  await fetchPendingFriendRequests();
-  isFriend.value = friends.value.includes(u.username);
+
+  // 先获取我的游戏标签，确保有最新数据用于比较
+  await fetchMyGameTags();
   
-  // 获取用户游戏标签
+  // 获取用户标签信息
   try {
     const res = await axios.post('/api/user-info-batch', {
       usernames: [u.username]
@@ -123,9 +207,78 @@ const handleUserMarkerClick = async (u, e) => {
     if (Array.isArray(res.data) && res.data.length > 0) {
       selectedUserTags.value = res.data[0].gameTags || [];
     }
-  } catch (err) {
-    console.error('获取用户游戏标签失败', err);
+  } catch (error) {
+    console.error('Failed to fetch user tags:', error);
   }
+  
+  // 设置当前选中的用户
+  selectedUser.value = u;
+  
+  // 使用异步函数检查是否是好友
+  const isFriendUser = await isUserFriend(u.username);
+  console.log(`${u.username} 是否是好友:`, isFriendUser);
+  
+  if (isFriendUser) {
+    console.log(`${u.username} 是好友，使用好友信息界面`);
+    // 如果是好友，使用好友菜单的查看好友主页方法
+    if (window.friendMenuRef?.value?.viewFriendProfile) {
+      // 构造完整的用户对象
+      const friendObj = {
+        username: u.username,
+        avatar: u.avatar || defaultAvatar,
+        // 添加好友标签信息
+        gameTags: selectedUserTags.value
+      };
+      
+      // 直接调用好友资料界面
+      window.friendMenuRef.value.viewFriendProfile(friendObj);
+      
+      // 关闭普通用户信息弹窗
+      showUserDialog.value = false;
+    } else {
+      console.log('friendMenuRef.viewFriendProfile 方法不存在，使用普通用户信息弹窗');
+      // 如果没有找到好友菜单引用，则使用普通的用户信息弹窗
+      showUserDialog.value = true;
+      isFriend.value = true; // 标记为好友
+    }
+  } else {
+    // 非好友，使用普通的用户信息弹窗
+    console.log(`${u.username} 不是好友，使用普通用户信息弹窗`);
+    showUserDialog.value = true;
+    isFriend.value = false; // 标记不是好友
+  }
+};
+
+// 在这里添加一个函数来判断用户是否是好友
+const isUserFriend = async (username) => {
+  // 判断一个用户是否是当前用户的好友
+  if (!user.value || !user.value.username) return false;
+  if (user.value.username === username) return false; // 自己不是自己的好友
+  
+  try {
+    // 从后端直接获取最新的好友列表
+    const res = await axios.get('/api/user-friends', {
+      params: { username: user.value.username }
+    });
+    
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      const myFriends = res.data;
+      console.log(`[DEBUG] 从后端获取到的好友列表:`, myFriends);
+      
+      // 检查是否包含目标用户名
+      const isFriend = myFriends.some(f => {
+        if (typeof f === 'string') return f === username;
+        return f && f.username === username;
+      });
+      
+      console.log(`[DEBUG] 重新检查 ${username} 是否为好友:`, isFriend);
+      return isFriend;
+    }
+  } catch (err) {
+    console.error("[DEBUG] 获取好友列表失败:", err);
+  }
+  
+  return false;
 };
 
 // 每分钟刷新一次用户位置，仅前端展示，不上传后端
@@ -333,6 +486,7 @@ const renderedUsers = ref([]); // 当前已渲染的用户
 let pendingUsers = [];         // 待渲染的用户
 let renderTimer = null;
 
+// 渲染标记点函数 - 需要修改以暴露给全局
 const renderUserMarkers = (users) => {
   if (!olmap) return;
   // 只操作你自己用 JS 创建的 marker，不要删除 Vue 组件渲染的 DOM
@@ -871,14 +1025,16 @@ onMounted(() => {
         class="search-nearby-btn cuphead-game-btn-2d"
       >搜索附近游戏搭子</el-button>
     </div>
-    <!-- 用户信息弹窗 - 修改为茶杯头风格 -->
+    <!-- 用户信息弹窗 -->
     <el-dialog
       v-model="showUserDialog"
       title=""
-      width="380px"
-      :close-on-click-modal="true"
+      width="540px"
       append-to-body
+      class="user-info-dialog cuphead-bg"
       :wrapper-class="'user-info-cuphead-bg'"
+      :z-index="4100"
+      :close-on-click-modal="true"
       :show-close="false"
     >
       <template #header="{ close }">
@@ -889,53 +1045,83 @@ onMounted(() => {
           </button>
         </div>
       </template>
-      <div class="map-user-info-content" v-if="selectedUser">
-        <div class="map-user-avatar">
-          <el-avatar :size="90" :src="selectedUser.avatar || defaultAvatar" class="map-avatar-img" />
-          <div class="map-avatar-glow"></div>
+      <div class="cuphead-content-bg" v-if="selectedUser">
+        <div class="cuphead-avatar-area">
+          <div class="avatar-frame">
+            <el-avatar :size="120" :src="selectedUser.avatar || defaultAvatar" class="avatar-img" />
+            <div class="avatar-glow"></div>
+          </div>
+          <div class="user-name">{{ selectedUser.username }}</div>
         </div>
-        
-        <div class="map-user-name">{{ selectedUser.username }}</div>
-        
-        <!-- 新增: 用户标签区域 -->
-        <div class="map-user-tags" v-if="selectedUserTags && selectedUserTags.length > 0">
-          <div class="map-section-title">游戏标签</div>
-          <div class="map-tag-list">
-            <template v-for="tag in getMergedTags(selectedUserTags)" :key="tag.id">
-              <el-tag
-                :style="{
-                  backgroundColor: tag.color,
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                  border: 'none',
-                  fontFamily: '\'JiangxiZhuokai\',cursive,sans-serif'
-                }"
-                class="map-cuphead-tag"
-              >
-                {{ getGameNameById(tag.id) }}
-                <span v-if="tag.count > 1" style="margin-left:6px;">x{{ tag.count }}</span>
-              </el-tag>
+        <div class="cuphead-divider"></div>
+        <div class="cuphead-section">
+          <div class="section-title">游戏标签</div>
+          <div class="tag-list">
+            <template v-if="selectedUserTags.length > 0">
+              <template v-for="tag in getMergedTags(selectedUserTags)" :key="tag.id">
+                <!-- 查找当前标签是否匹配 -->
+                <el-tag
+                  :style="{
+                    backgroundColor: tag.color,
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: '18px',
+                    border: 'none',
+                    fontFamily: '\'JiangxiZhuokai\',cursive,sans-serif',
+                    // 添加匹配标签的光晕效果
+                    boxShadow: isTagMatched(tag.id) ? `0 0 15px ${getMatchTagColor(tag.id)}` : '',
+                    position: 'relative'
+                  }"
+                  class="cuphead-tag"
+                >
+                  {{ getGameNameById(tag.id) }}
+                  <span v-if="tag.count > 1" style="margin-left:6px;">x{{ tag.count }}</span>
+                </el-tag>
+              </template>
+              
+              <!-- 匹配等级说明区域 -->
+              <div class="match-levels-container" v-if="getMatchedTags(selectedUserTags).length > 0">
+                <div class="match-levels-title">匹配等级</div>
+                <div class="match-level-tags">
+                  <div 
+                    v-for="match in getMatchedTags(selectedUserTags)" 
+                    :key="`match-${match.id}`"
+                    class="match-tag-item"
+                  >
+                    <div class="match-tag-name">{{ getGameNameById(match.id) }}</div>
+                    <div 
+                      class="match-tag-level"
+                      :style="{
+                        color: getMatchLevelColor(match.matchLevel),
+                        textShadow: `0 0 8px ${getMatchLevelColor(match.matchLevel)}`
+                      }"
+                    >{{ getMatchLevelText(match.matchLevel) }}</div>
+                  </div>
+                </div>
+              </div>
             </template>
+            <div v-else class="empty-tags-message">该用户暂未添加游戏标签</div>
           </div>
         </div>
-        
-        <div class="map-user-status">
-          <template v-if="isSelf">
-            <div class="map-status-self">这是你自己</div>
-          </template>
-          <template v-else-if="isFriend">
-            <div class="map-status-friend">已是你的好友</div>
-          </template>
+        <div class="cuphead-divider"></div>
+        <div class="cuphead-section">
+          <el-button
+            v-if="!isFriend"
+            type="primary"
+            class="cuphead-game-btn-2d"
+            @click="friendMenuRef && friendMenuRef.value.sendFriendRequest(selectedUser.username)"
+            :disabled="isPending"
+          >
+            <template v-if="isPending">已发送好友请求</template>
+            <template v-else>添加好友</template>
+          </el-button>
           <template v-else>
+            <span class="already-friend-text">已是你的好友</span>
             <el-button
-              type="success"
-              class="map-add-friend-btn"
-              :disabled="pendingFriendRequests && pendingFriendRequests.includes(selectedUser.username)"
-              @click="addFriend(selectedUser.username)"
-            >
-              {{ (pendingFriendRequests && pendingFriendRequests.includes(selectedUser.username)) ? '等待对方回复' : '添加好友' }}
-            </el-button>
+              type="primary"
+              class="cuphead-game-btn-2d"
+              @click="openGlobalChatDialog && openGlobalChatDialog(selectedUser); showUserDialog = false;"
+            >发送消息</el-button>
           </template>
         </div>
       </div>
@@ -1458,6 +1644,76 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.delete-btn-overlay:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(1.1);
+}
+
+.delete-btn-overlay:active {
+  transform: scale(0.95);
+}
+
+/* 新增匹配等级样式 */
+.match-levels-container {
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  border: 2px dashed #e7cfa2;
+}
+
+.match-levels-title {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 20px;
+  font-weight: bold;
+  color: #7c4a1e;
+  text-align: center;
+  margin-bottom: 10px;
+  text-shadow: 1px 1px 0 #f5e1a4;
+}
+
+.match-level-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.match-tag-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.match-tag-name {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 16px;
+  color: #7c4a1e;
+}
+
+.match-tag-level {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  /* 颜色和文字发光在行内样式中设置 */
+}
+
+.already-friend-text {
+  font-family: 'JiangxiZhuokai', cursive, sans-serif;
+  font-size: 18px;
+  color: #67c23a;
+  margin-bottom: 12px;
+  display: block;
 }
 
 /* 测距模式下强制十字光标 */
@@ -1481,4 +1737,5 @@ body.measure-mode .delete-btn-overlay {
   pointer-events: auto !important;
 }
 </style>
+
 

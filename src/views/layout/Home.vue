@@ -1144,11 +1144,11 @@ function initParticleBorder() {
   padding: 0 !important;
 }
 
-/* 内容区卡通风格（可选：可直接去掉背景，或与外部一致） */
+/* 修改：删除内容区卡通风格的背景 */
 .cuphead-content-bg {
-  background: none !important; /* 或直接删除这一行 */
+  background: transparent !important; /* 修改为透明背景 */
   border-radius: 32px;
-  box-shadow: 0 4px 24px rgba(166,124,82,0.08);
+  box-shadow: none !important; /* 移除阴影 */
   padding: 32px 0 24px 0;
   margin: 0 18px;
   display: flex;
@@ -1157,23 +1157,15 @@ function initParticleBorder() {
   position: relative;
 }
 
-/* 标题栏卡通装饰 */
+/* 标题栏卡通装饰 - 保持透明背景 */
 .cuphead-header-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px 0 0;
-  background: none;
-}
-.cuphead-title-text {
-  font-family: 'JiangxiZhuokai', cursive, sans-serif;
-  font-size: 32px;
-  font-weight: bold;
-  color: #a67c52;
-  margin-left: 12px;
-  margin-top: 8px;
-  text-shadow: 2px 2px 0 #f5e1a4, 0 2px 8px #a67c52;
-  user-select: none;
+  background: transparent !important; /* 修改为透明背景 */
+  box-shadow: none !important; /* 移除阴影 */
+  border: none !important; /* 移除边框 */
 }
 
 /* 手绘风格关闭按钮 */
