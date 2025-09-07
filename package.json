@@ -12,6 +12,7 @@
     "axios": "^1.8.4",
     "coordtransform": "^2.1.2",
     "cors": "^2.8.5",
+    "cos-nodejs-sdk-v5": "^2.15.4",
     "echarts": "^5.6.0",
     "element-plus": "^2.11.1",
     "express": "^5.1.0",

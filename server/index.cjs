@@ -5,6 +5,9 @@ const https = require('https');    // 使用 https 模块
 const fs = require('fs');          // 用于读取证书和私钥文件
 const { Server } = require('socket.io');
 const path = require('path');
+const dotenv = require('dotenv');
+dotenv.config({ path: './cos.env' }); // 加载 cos.env 文件
+const COS = require('cos-nodejs-sdk-v5');
 
 const app = express();
 app.use(cors());
@@ -28,6 +31,16 @@ const client = new MongoClient(uri, {
 });
 
 let db;
+
+// 配置腾讯云 COS
+const cos = new COS({
+  SecretId: process.env.TENCENT_COS_SECRET_ID,
+  SecretKey: process.env.TENCENT_COS_SECRET_KEY,
+});
+
+// 存储桶配置
+const BUCKET_NAME = 'user-avatars-1377740210';
+const REGION = 'ap-guangzhou';
 
 // 使用 HTTPS 创建服务器，并经过 Socket.IO 包装实现 WebSocket 通信
 const server = https.createServer(options, app);
@@ -147,7 +160,7 @@ client.connect().then(async () => {
     res.json({ message: "This endpoint requires a POST request." });
   });
 
-  // 用户头像上传/更换（优化：存储URL和缩略图URL，后端生成缩略图，增加日志调试）
+  // 用户头像上传/更换
 app.post('/api/user-avatar', async (req, res) => {
   const { username, avatar } = req.body;
   console.log('[user-avatar] 请求参数:', { username, avatarType: typeof avatar, avatarLen: avatar ? avatar.length : 0 });
@@ -155,68 +168,48 @@ app.post('/api/user-avatar', async (req, res) => {
     console.log('[user-avatar] 参数缺失');
     return res.json({ success: false, message: '参数缺失' });
   }
-  const userCol = db.collection('users');
+
   let avatarUrl = avatar;
-  let avatarThumbUrl = avatar;
   if (avatar.startsWith('data:image/')) {
     // 自动识别图片类型，保存为对应后缀
     const match = avatar.match(/^data:image\/(\w+);base64,/);
     const ext = match ? match[1].toLowerCase() : 'png';
     const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    const avatarDir = path.join(__dirname, '../public/avatars');
-    if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
-    const filePath = path.join(avatarDir, `${username}.${ext}`);
+    const key = `avatars/${username}.${ext}`; // 文件路径
+
     try {
-      // 修正：保存缩略图和原图时，格式要和扩展名一致
-      if (ext === 'png') {
-        await require('sharp')(buffer).png().toFile(filePath);
-      } else if (ext === 'jpeg' || ext === 'jpg') {
-        await require('sharp')(buffer).jpeg().toFile(filePath);
-      } else if (ext === 'webp') {
-        await require('sharp')(buffer).webp().toFile(filePath);
-      } else {
-        // 其它格式直接写 buffer
-        fs.writeFileSync(filePath, buffer);
-      }
-      avatarUrl = `/avatars/${username}.${ext}`;
-      console.log('[user-avatar] 原图已保存:', filePath);
+      // 上传到腾讯云 COS
+      const result = await cos.putObject({
+        Bucket: BUCKET_NAME,
+        Region: REGION,
+        Key: key,
+        Body: buffer,
+        ContentType: `image/${ext}`,
+        ACL: 'public-read', // 设置为公开可读
+      }).promise();
+
+      avatarUrl = `https://${BUCKET_NAME}.cos.${REGION}.myqcloud.com/${key}`;
+      console.log('[user-avatar] 上传到 COS 成功:', avatarUrl);
     } catch (err) {
-      console.error('[user-avatar] 保存原图失败:', err);
-      return res.json({ success: false, message: '保存头像失败' });
+      console.error('[user-avatar] 上传到 COS 失败:', err);
+      return res.json({ success: false, message: '上传头像失败' });
     }
-    // 生成缩略图
-    const thumbPath = path.join(avatarDir, `${username}_thumb.${ext}`);
-    try {
-      let sharpInstance = require('sharp')(buffer).resize(48, 48);
-      if (ext === 'png') sharpInstance = sharpInstance.png();
-      else if (ext === 'jpeg' || ext === 'jpg') sharpInstance = sharpInstance.jpeg();
-      else if (ext === 'webp') sharpInstance = sharpInstance.webp();
-      await sharpInstance.toFile(thumbPath);
-      avatarThumbUrl = `/avatars/${username}_thumb.${ext}`;
-      console.log('[user-avatar] 缩略图已保存:', thumbPath);
-    } catch (err) {
-      avatarThumbUrl = avatarUrl;
-      console.error('[user-avatar] 生成缩略图失败:', err);
-    }
-  } else {
-    // 非 base64，直接存储 URL
-    avatarUrl = avatar;
-    avatarThumbUrl = avatar;
-    console.log('[user-avatar] avatar 非 base64，直接存储:', avatar);
   }
-  // 只更新头像字段，不影响其它字段
+
+  // 更新数据库中的头像 URL
   try {
+    const userCol = db.collection('users');
     const updateRes = await userCol.updateOne(
       { username },
-      { $set: { avatar: avatarUrl, avatarThumb: avatarThumbUrl } }
+      { $set: { avatar: avatarUrl } }
     );
     console.log('[user-avatar] 数据库更新结果:', updateRes);
+    res.json({ success: true, avatarUrl });
   } catch (err) {
     console.error('[user-avatar] 数据库更新失败:', err);
-    return res.json({ success: false, message: '数据库更新失败' });
+    res.json({ success: false, message: '数据库更新失败' });
   }
-  res.json({ success: true });
 });
 
   // 保存或更新用户坐标
