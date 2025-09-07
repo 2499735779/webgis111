@@ -515,6 +515,13 @@ const searchNearby = async () => {
       params: { lng: centerLng, lat: centerLat, radius: 3000 }
     });
     nearbyUsers.value = res.data || [];
+    
+    // 新增：检查是否没有找到附近玩家
+    if (nearbyUsers.value.length === 0) {
+      errorMsg.value = '附近没有玩家留下足迹，点击定位标识留下您的足迹吧！';
+      return;
+    }
+    
     errorMsg.value = '';
     if (nearbyUsers.value.length > 0) {
       const first = nearbyUsers.value[0];
@@ -1402,6 +1409,15 @@ onMounted(() => {
   font-size: 16px;
   font-weight: bold;
   box-shadow: 0 2px 8px rgba(166, 124, 82, 0.15);
+  text-align: center;
+  max-width: 90%;
+  margin: 0 auto;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* 删除按钮样式 */
@@ -1436,4 +1452,4 @@ body.measure-mode .delete-btn-overlay {
   pointer-events: auto !important;
 }
 </style>
- 
+
