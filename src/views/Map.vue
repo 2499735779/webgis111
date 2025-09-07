@@ -496,6 +496,13 @@ const searchNearby = async () => {
     return;
   }
   clearNearbyOverlays();
+  
+  // 清除可能存在的旧计时器
+  if (errorMsgTimer) {
+    clearTimeout(errorMsgTimer);
+    errorMsgTimer = null;
+  }
+  
   errorMsg.value = '正在搜索附近用户...';
   if (olmap.updateSize) {
     olmap.updateSize();
@@ -519,6 +526,13 @@ const searchNearby = async () => {
     // 新增：检查是否没有找到附近玩家
     if (nearbyUsers.value.length === 0) {
       errorMsg.value = '附近没有玩家留下足迹，点击定位标识留下您的足迹吧！';
+      
+      // 设置5秒后自动清除消息
+      errorMsgTimer = setTimeout(() => {
+        errorMsg.value = '';
+        errorMsgTimer = null;
+      }, 5000);
+      
       return;
     }
     
@@ -539,6 +553,12 @@ const searchNearby = async () => {
     renderUserMarkers(nearbyUsers.value);
   } catch (err) {
     errorMsg.value = '搜索附近用户失败';
+    
+    // 设置错误消息也自动消失
+    errorMsgTimer = setTimeout(() => {
+      errorMsg.value = '';
+      errorMsgTimer = null;
+    }, 5000);
   }
 };
 
