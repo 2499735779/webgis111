@@ -6,7 +6,7 @@ const fs = require('fs');          // 用于读取证书和私钥文件
 const { Server } = require('socket.io');
 const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config({ path: './cos.env' }); // 确保路径正确
+dotenv.config({ path: './cos.env', override: true });
 const COS = require('cos-nodejs-sdk-v5');
 
 const app = express();

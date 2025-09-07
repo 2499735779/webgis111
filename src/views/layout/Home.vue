@@ -200,11 +200,7 @@ const handleAvatarChange = async (e) => {
     alert('请选择图片格式的文件');
     return;
   }
-  if (file.size > 2 * 1024 * 1024) {
-    e.target.value = '';
-    alert('请选择2MB以内的图片');
-    return;
-  }
+  // 移除文件大小限制
   const reader = new FileReader();
   reader.onload = async (evt) => {
     const base64 = evt.target.result;
