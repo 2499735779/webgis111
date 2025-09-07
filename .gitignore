@@ -30,6 +30,5 @@ coverage
 *.tsbuildinfo
 
 # 确保不排除 public 目录下的 SVG 文件
-!public/*.svg
-
+!public/*.svg 
 cos.env
