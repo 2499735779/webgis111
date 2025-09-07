@@ -165,58 +165,45 @@ app.post('/api/user-avatar', async (req, res) => {
   const { username, avatar } = req.body;
   console.log('[user-avatar] 请求参数:', { username, avatarType: typeof avatar, avatarLen: avatar ? avatar.length : 0 });
   if (!username || !avatar) {
-    console.log('[user-avatar] 参数缺失');
-    return res.json({ success: false, message: '参数缺失' });
+    return res.status(400).json({ success: false, message: '用户名或头像数据缺失' });
   }
 
   let avatarUrl = avatar;
   if (avatar.startsWith('data:image/')) {
-    // 自动识别图片类型，保存为对应后缀
-    const match = avatar.match(/^data:image\/(\w+);base64,/);
-    const ext = match ? match[1].toLowerCase() : 'png';
+    // 提取 Base64 数据
     const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    const key = `avatars/${username}.${ext}`; // 文件路径
+    const fileExtension = avatar.match(/^data:image\/(\w+);base64,/)[1] || 'png';
+    const fileName = `avatars/${username}-${Date.now()}.${fileExtension}`;
 
     try {
-      // 包装为 Promise
-      const result = await new Promise((resolve, reject) => {
-        cos.putObject({
-          Bucket: BUCKET_NAME,
-          Region: REGION,
-          Key: key,
-          Body: buffer,
-          ContentType: `image/${ext}`,
-          ACL: 'public-read', // 设置为公开可读
-        }, (err, data) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(data);
-          }
-        });
+      // 上传到腾讯云 COS
+      const result = await cos.putObject({
+        Bucket: BUCKET_NAME,
+        Region: REGION,
+        Key: fileName,
+        Body: buffer,
+        ContentType: `image/${fileExtension}`,
+        ACL: 'public-read', // 设置文件为公开可读
       });
+      console.log('[user-avatar] 腾讯云上传结果:', result);
 
-      avatarUrl = `https://${BUCKET_NAME}.cos.${REGION}.myqcloud.com/${key}`;
-      console.log('[user-avatar] 上传到 COS 成功:', avatarUrl);
+      // 获取文件的访问 URL
+      avatarUrl = `https://${result.Location}`;
     } catch (err) {
-      console.error('[user-avatar] 上传到 COS 失败:', err);
-      return res.json({ success: false, message: '上传头像失败' });
+      console.error('[user-avatar] 上传到腾讯云失败:', err);
+      return res.status(500).json({ success: false, message: '上传头像失败，请稍后重试' });
     }
   }
 
   // 更新数据库中的头像 URL
   try {
     const userCol = db.collection('users');
-    const updateRes = await userCol.updateOne(
-      { username },
-      { $set: { avatar: avatarUrl } }
-    );
-    console.log('[user-avatar] 数据库更新结果:', updateRes);
-    res.json({ success: true, avatarUrl });
+    await userCol.updateOne({ username }, { $set: { avatar: avatarUrl } });
+    res.json({ success: true, avatar: avatarUrl });
   } catch (err) {
-    console.error('[user-avatar] 数据库更新失败:', err);
-    res.json({ success: false, message: '数据库更新失败' });
+    console.error('[user-avatar] 更新数据库失败:', err);
+    res.status(500).json({ success: false, message: '更新头像信息失败' });
   }
 });
 

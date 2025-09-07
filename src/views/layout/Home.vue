@@ -211,26 +211,22 @@ const handleAvatarChange = async (e) => {
     avatarUrl.value = base64;
     uploading.value = true;
     try {
-      // 1. 上传头像到后端
+      // 上传头像到后端
       const res = await axios.post('/api/user-avatar', {
         username: user.value.username,
         avatar: base64
       });
       if (res.data.success) {
-        // 2. 上传成功后，重新拉取后端头像URL，确保 user.avatar 为 URL
-        const infoRes = await axios.post('/api/user-info-batch', {
-          usernames: [user.value.username]
-        });
-        if (Array.isArray(infoRes.data) && infoRes.data.length > 0) {
-          let avatar = infoRes.data[0].avatar || '';
-          if (avatar && avatar.startsWith('/avatars/')) {
-            avatar = backendOrigin + avatar;
-          }
-          user.value.avatar = avatar || defaultAvatar;
-          avatarUrl.value = user.value.avatar;
-          localStorage.setItem('user', JSON.stringify(user.value));
-        }
+        // 更新用户头像 URL
+        user.value.avatar = res.data.avatar;
+        avatarUrl.value = res.data.avatar;
+        localStorage.setItem('user', JSON.stringify(user.value));
+      } else {
+        alert('头像上传失败，请稍后重试');
       }
+    } catch (err) {
+      console.error('头像上传失败:', err);
+      alert('头像上传失败，请检查网络连接');
     } finally {
       uploading.value = false;
     }
