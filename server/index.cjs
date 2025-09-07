@@ -6,7 +6,7 @@ const fs = require('fs');          // 用于读取证书和私钥文件
 const { Server } = require('socket.io');
 const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config({ path: './cos.env' }); // 加载 cos.env 文件
+dotenv.config({ path: './cos.env' }); // 确保路径正确
 const COS = require('cos-nodejs-sdk-v5');
 
 const app = express();
@@ -524,4 +524,15 @@ app.post('/api/user-game-tags', async (req, res) => {
   });
 }).catch(err => {
   console.error('Failed to connect to MongoDB Atlas:', err);
+});
+
+console.log('TENCENT_COS_SECRET_ID:', process.env.TENCENT_COS_SECRET_ID);
+console.log('TENCENT_COS_SECRET_KEY:', process.env.TENCENT_COS_SECRET_KEY);
+
+cos.getService((err, data) => {
+  if (err) {
+    console.error('腾讯云 COS SDK 测试失败:', err);
+  } else {
+    console.log('腾讯云 COS SDK 测试成功:', data);
+  }
 });
