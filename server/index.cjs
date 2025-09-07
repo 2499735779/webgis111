@@ -179,15 +179,23 @@ app.post('/api/user-avatar', async (req, res) => {
     const key = `avatars/${username}.${ext}`; // 文件路径
 
     try {
-      // 上传到腾讯云 COS
-      const result = await cos.putObject({
-        Bucket: BUCKET_NAME,
-        Region: REGION,
-        Key: key,
-        Body: buffer,
-        ContentType: `image/${ext}`,
-        ACL: 'public-read', // 设置为公开可读
-      }).promise();
+      // 包装为 Promise
+      const result = await new Promise((resolve, reject) => {
+        cos.putObject({
+          Bucket: BUCKET_NAME,
+          Region: REGION,
+          Key: key,
+          Body: buffer,
+          ContentType: `image/${ext}`,
+          ACL: 'public-read', // 设置为公开可读
+        }, (err, data) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        });
+      });
 
       avatarUrl = `https://${BUCKET_NAME}.cos.${REGION}.myqcloud.com/${key}`;
       console.log('[user-avatar] 上传到 COS 成功:', avatarUrl);
